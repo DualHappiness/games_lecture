@@ -94,17 +94,17 @@ impl Rasterizer {
         self.projection = p.clone();
     }
 
-    pub fn set_pixel(&mut self, point: &Vector3<f32>, color: &Vector3<f32>) {
-        // println!("set pixel, point: {:?}, color: {:?}", point, color);
-        if point.x < 0.0
-            || point.x > self.width as f32
-            || point.y < 0.0
-            || point.y > self.height as f32
-        {
+    pub fn set_pixel(&mut self, point: &Vector3<i32>, color: &Vector3<f32>) {
+        if point.x < 0 || point.x > self.width || point.y < 0 || point.y > self.height {
             return;
         }
 
-        let ind = (self.height as f32 - point.y) * self.width as f32 + point.x;
+        let ind = (self.height - point.y) * self.width + point.x;
+        #[cfg(feature = "show_print")]
+        println!(
+            "set pixel, {:?} point: {:?}, color: {:?}",
+            ind as usize, point, color
+        );
         self.frame_buf[ind as usize] = color.clone();
     }
 
@@ -130,13 +130,16 @@ impl Rasterizer {
         let f1 = (100f32 - 0.1) / 2f32;
         let f2 = (100f32 + 0.1) / 2f32;
 
-        println!(
-            "mvp is :\n\nmodel: {:?}\n\nview: {:?}\n\nprojection: {:?}",
-            self.model, self.view, self.projection
-        );
         let mvp = self.projection * self.view * self.model;
 
-        println!("mvp~~~ is : {:?}", mvp);
+        #[cfg(feature = "show_print")]
+        {
+            println!(
+                "mvp is :\n\nmodel: {:?}\n\nview: {:?}\n\nprojection: {:?}",
+                self.model, self.view, self.projection
+            );
+            println!("mvp~~~ is : {:?}", mvp);
+        }
         let mut ts = vec![];
         for i in ind {
             let v: [Vector4<f32>; 3] = [
@@ -144,7 +147,6 @@ impl Rasterizer {
                 mvp * buf[i[1]].to_homogeneous(),
                 mvp * buf[i[2]].to_homogeneous(),
             ];
-            println!("v is : {:?}", v);
 
             let v: Vec<Vector4<f32>> = v
                 .iter()
@@ -157,7 +159,6 @@ impl Rasterizer {
                     ])
                 })
                 .collect();
-            println!("v is : {:?}", v);
             let mut t = super::triangle::Triangle::new();
             (0..3).for_each(|i| t.set_vertex(i, Vector3::from_column_slice(&v[i].as_slice()[..3])));
             t.set_color(0, 255f32, 0f32, 0f32).expect("set wrong color");
@@ -170,8 +171,6 @@ impl Rasterizer {
     }
 
     pub fn frame_buffer(&mut self) -> Vec<f32> {
-        // println!("{:?}", self.frame_buf);
-
         let mut ret = Vec::with_capacity(self.width as usize * self.height as usize);
         self.frame_buf
             .iter()
@@ -180,117 +179,56 @@ impl Rasterizer {
     }
 
     fn draw_line(&mut self, begin: Vector3<f32>, end: Vector3<f32>) {
-        let (mut x1, mut y1) = (begin.x, begin.y);
-        let (mut x2, mut y2) = (end.x, end.y);
+        #[cfg(feature = "show_print")]
+        println!("draw line : {:?} , {:?}", begin, end);
+        let (x1, y1) = (begin.x, begin.y);
+        let (x2, y2) = (end.x, end.y);
 
         let line_color = Vector3::new(255.0, 255.0, 255.0);
-        let (dx, dy) = (x2 - x1, y2 - y1);
-        let dx1 = dx.abs();
-        let dy1 = dy.abs();
+        let (dx, dy) = ((x2 - x1) as i32, (y2 - y1) as i32);
+        let line_dir = (dx < 0 && dy < 0) || (dx > 0 && dy > 0);
+        let (dx1, dy1) = (dx.abs(), dy.abs());
 
-        let mut px = 2.0 * dy1 - dx1;
-        let mut py = 2.0 * dx1 - dy1;
+        let mut px = 2 * dy1 - dx1;
+        let mut py = 2 * dx1 - dy1;
 
-        if dy1 <= dx1 {
-            let (mut x, mut y, range) = if dx >= 0f32 {
-                (x1, y1, x2 as i32)
-            } else {
-                (x2, y2, x1 as i32)
-            };
-
-            let point = Vector3::new(x, y, 1f32);
-            self.set_pixel(&point, &line_color);
-
-            for _ in 0..range + 1 {
-                x += 1f32;
-                if px < 0f32 {
-                    px += 2f32 * dy1;
-                } else {
-                    if (dx <= 0f32 && dy <= 0f32) || (dx >= 0f32 && dy >= 0f32) {
-                        y += 1f32;
-                    } else {
-                        y -= 1f32;
-                    }
-                    px += 2f32 * (dy1 - dx1);
-                }
-            }
-            let point = Vector3::new(x, y, 1f32);
-            self.set_pixel(&point, &line_color);
+        let (x1, y1, x2, y2) = (x1 as i32, y1 as i32, x2 as i32, y2 as i32);
+        let (dir, (mut x, mut y, range), (p, d1, d2)) = if dy1 <= dx1 {
+            let l = (&mut px, dy1, dx1);
+            let n = if dx >= 0 { (x1, y1, x2) } else { (x2, y2, x1) };
+            (true, n, l)
         } else {
-            let (mut x, mut y, range) = if dy >= 0f32 {
-                (x1, y1, y2 as i32)
+            let l = (&mut py, dx1, dy1);
+            let n = if dy >= 0 { (x1, y1, y2) } else { (x2, y2, y1) };
+            (false, n, l)
+        };
+        let point = Vector3::new(x, y, 1);
+        self.set_pixel(&point, &line_color);
+
+        #[cfg(feature = "show_print")]
+        {
+            println!("{:?}", (dir, (x, y, range), (&p, d1, d2)));
+            println!("range is {}", range);
+        }
+        if !dir {
+            std::mem::swap(&mut x, &mut y);
+        }
+        while x < range {
+            x += 1;
+            if *p < 0 {
+                *p += 2 * d1;
             } else {
-                (x2, y2, y1 as i32)
-            };
-            let point = Vector3::new(x, y, 1f32);
-            self.set_pixel(&point, &line_color);
-            for _ in 0..range + 1 {
-                y += 1f32;
-                if py <= 0f32 {
-                    py += 2f32 * dx1;
-                } else {
-                    if (dx <= 0f32 && dy <= 0f32) || (dx >= 0f32 && dy >= 0f32) {
-                        x += 1f32;
-                    } else {
-                        x -= 1f32;
-                    }
-                    py += 2f32 * (dx1 - dy1);
-                }
-                let point = Vector3::new(x, y, 1f32);
-                self.set_pixel(&point, &line_color);
+                y += if line_dir { 1 } else { -1 };
+                *p += 2 * (d1 - d2);
             }
+            let point = if dir {
+                Vector3::new(x, y, 1)
+            } else {
+                Vector3::new(y, x, 1)
+            };
+            self.set_pixel(&point, &line_color);
         }
     }
-    // fn draw_line(&mut self, begin: Vector3<f32>, end: Vector3<f32>) {
-    //     let (mut x1, mut y1) = (begin.x, begin.y);
-    //     let (mut x2, mut y2) = (end.x, end.y);
-
-    //     let line_color = Vector3::new(255.0, 255.0, 255.0);
-    //     let (dx, dy) = (x2 - x1, y2 - y1);
-    //     let dx1 = dx.abs();
-    //     let dy1 = dy.abs();
-
-    //     let mut px = 2.0 * dy1 - dx1;
-    //     let mut py = 2.0 * dx1 - dy1;
-
-    //     let (mut x, mut y, range, rev, p, d1, d2) = if dy1 <= dx1 {
-    //         if dx >= 0.0 {
-    //             (x1, y1, x2 as i32, true, &mut px, dy1, dx1)
-    //         } else {
-    //             (x2, y2, x1 as i32, true, &mut px, dy1, dx1)
-    //         }
-    //     } else {
-    //         if dy >= 0.0 {
-    //             (x1, y1, y2 as i32, false, &mut py, dx1, dy1)
-    //         } else {
-    //             (x2, y2, y1 as i32, false, &mut py, dx1, dy1)
-    //         }
-    //     };
-    //     let point = Vector3::new(x, y, 1.0);
-    //     self.set_pixel(&point, &line_color);
-
-    //     for _ in 0..range + 1 {
-    //         let (m1, m2) = if rev {
-    //             (&mut x, &mut y)
-    //         } else {
-    //             (&mut y, &mut x)
-    //         };
-    //         *m1 += 1.0;
-    //         if *p < 0.0 {
-    //             *p += 2.0 * d1;
-    //         } else {
-    //             if (dx < 0.0 && dy < 0.0) || (dx > 0.0 && dy > 0.0) {
-    //                 *m2 += 1.0;
-    //             } else {
-    //                 *m2 -= 1.0;
-    //             }
-    //             *p += 2.0 * (d1 - d2);
-    //         }
-
-    //         let point = Vector3::new(x, y, 1.0);
-    //         self.set_pixel(&point, &line_color);
-    //     }
-    // }
 
     fn rasterize_wireframe(&mut self, t: &super::triangle::Triangle) {
         self.draw_line(t.c(), t.a());

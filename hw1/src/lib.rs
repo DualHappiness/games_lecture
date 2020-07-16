@@ -33,7 +33,6 @@ pub fn get_projection_matrix(
     z_far: f32,
 ) -> Matrix4<f32> {
     let (n, f) = (z_near, z_far);
-    println!("{}", -1f32.atan());
     let t = (eye_fov / 2.0 / 180.0 * std::f32::consts::PI).tan() * n.abs();
     let r = t * aspect_ratio;
 
@@ -59,7 +58,10 @@ pub fn get_projection_matrix(
         Vector4::new(0f32, 0f32, -n * f, 1f32),
     ]);
 
-    println!("orthographic : {:?}", orthographic);
-    println!("perspective_to_o: {:?}", perspective_to_orthographic);
+    #[cfg(feature = "show_print")]
+    {
+        println!("orthographic : {:?}", orthographic);
+        println!("perspective_to_o: {:?}", perspective_to_orthographic);
+    }
     orthographic * perspective_to_orthographic
 }

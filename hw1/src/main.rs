@@ -5,6 +5,8 @@ use std::env;
 mod rasterizer;
 mod triangle;
 
+const SIZE: i32 = 700;
+
 fn draw_image(
     angle: &f32,
     eye_pos: &Vector3<f32>,
@@ -17,7 +19,7 @@ fn draw_image(
     r.set_model(&opencv_learn::get_model_matrix(*angle));
     r.set_view(&opencv_learn::get_view_matrix(*eye_pos));
     r.set_projection(&opencv_learn::get_projection_matrix(
-        120f32, 1f32, 1f32, 10f32,
+        120f32, 1f32, 5f32, 10f32,
     ));
 
     r.draw(pos_id, ind_id, rasterizer::Primitive::Triangle);
@@ -26,7 +28,7 @@ fn draw_image(
     let mut ret = Mat::default().unwrap();
     unsafe {
         let image =
-            Mat::new_rows_cols_with_data(700, 700, core::CV_32FC3, ptr, core::Mat_AUTO_STEP)
+            Mat::new_rows_cols_with_data(SIZE, SIZE, core::CV_32FC3, ptr, core::Mat_AUTO_STEP)
                 .expect("build image fail");
         image
             .convert_to(&mut ret, core::CV_8UC3, 1f64, 0f64)
@@ -52,9 +54,9 @@ fn main() {
         }
     }
 
-    let mut r = rasterizer::Rasterizer::new(700, 700);
+    let mut r = rasterizer::Rasterizer::new(SIZE, SIZE);
 
-    let eye_pos = Vector3::new(0f32, 0f32, 5f32);
+    let eye_pos = Vector3::new(0f32, 0f32, 15f32);
 
     let points = vec![
         Point3::new(1f32, 0f32, -2f32),
@@ -79,7 +81,6 @@ fn main() {
             highgui::imshow("show image", &image).unwrap();
             key = highgui::wait_key(0).unwrap() as u8;
 
-            println!("frame count: {}", frame_count);
             frame_count += 1;
             if key == b'a' {
                 angle += 10f32;

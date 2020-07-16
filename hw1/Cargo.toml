@@ -11,3 +11,6 @@ opencv = {version = "0.43.2", features = ["buildtime-bindgen"]}
 nalgebra = "0.21.1"
 num-traits = "0.2"
 num-derive = "0.2"
+
+[features]
+show_print = []
