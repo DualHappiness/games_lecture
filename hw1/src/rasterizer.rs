@@ -25,7 +25,7 @@ impl std::ops::BitAnd for Buffers {
 
 #[derive(Debug, PartialEq)]
 pub enum Primitive {
-    Line,
+    // Line,
     Triangle,
 }
 

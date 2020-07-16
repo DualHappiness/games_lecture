@@ -69,7 +69,7 @@ fn main() {
     let ind_id = r.load_indices(&ind);
 
     let mut key = 0 as u8;
-    let mut frame_count = 0;
+    // let mut frame_count = 0;
 
     if command_line {
         let image = draw_image(&angle, &eye_pos, &mut r, pos_id, ind_id);
@@ -81,7 +81,7 @@ fn main() {
             highgui::imshow("show image", &image).unwrap();
             key = highgui::wait_key(0).unwrap() as u8;
 
-            frame_count += 1;
+            // frame_count += 1;
             if key == b'a' {
                 angle += 10f32;
             }
