@@ -100,7 +100,7 @@ impl Rasterizer {
         }
 
         let ind = (self.height - point.y) * self.width + point.x;
-        #[cfg(feature = "show_print")]
+        #[cfg(feature = "show_print_more")]
         println!(
             "set pixel, {:?} point: {:?}, color: {:?}",
             ind as usize, point, color
@@ -148,8 +148,11 @@ impl Rasterizer {
                 mvp * buf[i[2]].to_homogeneous(),
             ];
 
+            #[cfg(feature = "show_print")]
+            println!("original v is {:?}", v);
             let v: Vec<Vector4<f32>> = v
                 .iter()
+                .map(|vec| vec / vec.w)
                 .map(|vert| {
                     Vector4::from_row_slice(&[
                         0.5 * self.width as f32 * (vert.x + 1.0),

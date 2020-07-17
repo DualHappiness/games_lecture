@@ -1,0 +1,40 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "(Windows) Launch",
+            "type": "cppvsdbg",
+            "request": "launch",
+            "program": "${workspaceRoot}/target/debug/raytracer.exe",
+            "args": [],
+            "stopAtEntry": false,
+            "cwd": "${workspaceRoot}",
+            "environment": [],
+            "externalConsole": true,
+            "preLaunchTask": "build",
+        },
+        {
+            "name": "CodeLLDB",
+            "type": "lldb",
+            "request": "launch",
+            "program": "${workspaceFolder}/target/debug/raytracer.exe",
+            "windows": {
+                "program": "${workspaceFolder}/target/debug/raytracer.exe",
+            },
+            "cwd": "${workspaceFolder}",
+            "stopOnEntry": true,
+            "sourceLanguages": [
+                "rust"
+            ],
+            "sourceMap": {
+                // "/rustc/8d69840ab92ea7f4d323420088dd8c9775f180cd\/src": "${env:RUST}/lib/rustlib/src/rust/src",
+                // "/rustc/8d69840ab92ea7f4d323420088dd8c9775f180cd": "${env:RUST}/lib/rustlib/src/rust",
+                "/rustc/c7087fe00d2ba919df1d813c040a5d47e43b0fe7": "${env:RUST}/lib/rustlib/src/rust",
+            },
+            "preLaunchTask": "build",
+            "terminal": "console",
+            "args": [],
+            "env": {},
+        }
+    ]
+}

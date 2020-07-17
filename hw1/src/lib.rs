@@ -54,8 +54,8 @@ pub fn get_projection_matrix(
     let perspective_to_orthographic = Matrix4::from_columns(&[
         Vector4::new(n, 0f32, 0f32, 0f32),
         Vector4::new(0f32, n, 0f32, 0f32),
-        Vector4::new(0f32, 0f32, n + f, 0f32),
-        Vector4::new(0f32, 0f32, -n * f, 1f32),
+        Vector4::new(0f32, 0f32, n + f, 1f32),
+        Vector4::new(0f32, 0f32, -n * f, 0f32),
     ]);
 
     #[cfg(feature = "show_print")]

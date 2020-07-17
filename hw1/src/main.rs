@@ -56,12 +56,12 @@ fn main() {
 
     let mut r = rasterizer::Rasterizer::new(SIZE, SIZE);
 
-    let eye_pos = Vector3::new(0f32, 0f32, 15f32);
+    let eye_pos = Vector3::new(0f32, 0f32, 5f32);
 
     let points = vec![
-        Point3::new(1f32, 0f32, -2f32),
-        Point3::new(0f32, 1f32, -2f32),
-        Point3::new(-1f32, 0f32, -2f32),
+        Point3::new(2f32, 0f32, 2f32),
+        Point3::new(0f32, 2f32, 2f32),
+        Point3::new(-2f32, 0f32, 2f32),
     ];
     let ind = vec![Vector3::new(0, 1, 2)];
 
