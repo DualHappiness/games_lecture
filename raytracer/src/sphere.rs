@@ -8,21 +8,21 @@ pub struct Sphere {
     pub radius: f32,
     pub radius2: f32,
     pub surface_color: Vector3f,
-    pub emission_color: Vector3f,
     pub transparency: f32,
     pub reflection: f32,
+    pub emission_color: Vector3f,
 }
 
 #[macro_export]
-macro_rules! new {
+macro_rules! new_sphere {
     ($a:expr, $b:expr, $c:expr) => {
-        new!($a, $b, $c, nalgebra::zero());
+        new_sphere!($a, $b, $c, nalgebra::zero());
     };
     ($a:expr, $b:expr, $c:expr, $d:expr, $e:expr, $f:expr) => {
-        Sphere::new($a, $b, $c, $d, $e, $f)
+        raytracer::sphere::Sphere::new($a, $b, $c, $d, $e, $f)
     };
     ($($a:expr),*) => {
-        new!($($a),*, 0f32);
+        new_sphere!($($a),*, 0f32);
     };
 }
 

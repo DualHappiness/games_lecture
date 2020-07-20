@@ -1,24 +1,29 @@
 use nalgebra::Vector3;
+use opencv::{core, imgcodecs, prelude::*};
 use std::f32::INFINITY;
+use std::fs;
+use std::io::prelude::*;
 
 pub mod sphere;
 
 type Vector3f = Vector3<f32>;
 
 const MAX_DEPTH: i32 = 5;
-pub fn mix(a: f32, b: f32, mix: f32) -> f32 {
+fn mix(a: f32, b: f32, mix: f32) -> f32 {
     b * mix + a * (1f32 - mix)
 }
 
-pub fn trace(
+fn mul_color(a: &Vector3f, b: &Vector3f) -> Vector3f {
+    Vector3f::new(a.x * b.x, a.y * b.y, a.z * b.z)
+}
+
+fn trace(
     rayorig: Vector3f,
     raydir: Vector3f,
     spheres: &Vec<sphere::Sphere>,
     depth: i32,
 ) -> Vector3f {
-    assert_eq!(raydir.len(), 1f32);
-    let tnear = INFINITY;
-
+    // assert_eq!(raydir.len(), 1f32);
     match spheres
         .iter()
         .map(|sphere| match sphere.intersect(&rayorig, &raydir) {
@@ -29,10 +34,9 @@ pub fn trace(
     {
         None => nalgebra::zero(),
         Some((t, sphere)) => {
-            let mut surface_color = nalgebra::zero();
             let point_of_hit = rayorig + raydir * t;
-            let mut normal_at_hit = point_of_hit - sphere.center;
-            normal_at_hit.normalize();
+            let normal_at_hit = point_of_hit - sphere.center;
+            let mut normal_at_hit = normal_at_hit.normalize();
 
             // If the normal and the view direction are not opposite to each other
             // reverse the normal direction. That also means we are inside the sphere so set
@@ -44,25 +48,142 @@ pub fn trace(
                 normal_at_hit = -normal_at_hit;
             }
 
-            if (sphere.transparency > 0f32 || sphere.reflection > 0f32) && depth < MAX_DEPTH {
-                // change the mix value to tweak the effect
-                let facingratio = -raydir.dot(&normal_at_hit);
-                let fresneleffect = mix((1f32 - facingratio).powf(3f32), 1f32, 0.1);
+            let surface_color =
+                if (sphere.transparency > 0f32 || sphere.reflection > 0f32) && depth < MAX_DEPTH {
+                    // change the mix value to tweak the effect
+                    let facingratio = -raydir.dot(&normal_at_hit);
+                    let fresneleffect = mix((1f32 - facingratio).powf(3f32), 1f32, 0.1);
 
-                // compute reflection direction (not need to normalize because all vectors
-                // are already normalized)
-                let reflection_dir = raydir - normal_at_hit * 2f32 * raydir.dot(&normal_at_hit);
-                reflection_dir.normalize();
-                let reflection = trace(
-                    point_of_hit + normal_at_hit * bias,
-                    reflection_dir,
-                    spheres,
-                    depth + 1,
-                );
-                let refreaction = nalgebra::zero();
-            }
+                    // compute reflection direction (not need to normalize because all vectors
+                    // are already normalized)
+                    let reflection_dir = raydir - normal_at_hit * 2f32 * raydir.dot(&normal_at_hit);
+                    let reflection_dir = reflection_dir.normalize();
+                    let reflection = trace(
+                        point_of_hit + normal_at_hit * bias,
+                        reflection_dir,
+                        spheres,
+                        depth + 1,
+                    );
+                    // compute refreaction
+                    let refreaction = if sphere.transparency > 0f32 {
+                        // fixed index of refraction
+                        let ior = 1.1;
+                        let eta = if inside { ior } else { 1f32 / ior };
+                        let cosi = -normal_at_hit.dot(&raydir);
+                        let k = 1f32 - eta * eta * (1f32 - cosi * cosi);
+                        let refraction_dir = raydir * eta + normal_at_hit * (eta * cosi - k.sqrt());
+                        let refraction_dir = refraction_dir.normalize();
 
-            surface_color
+                        trace(
+                            point_of_hit - normal_at_hit * bias,
+                            refraction_dir,
+                            spheres,
+                            depth + 1,
+                        )
+                    } else {
+                        nalgebra::zero()
+                    };
+                    // the result is a mix of reflection and refraction (if the sphere is transparent)
+                    mul_color(
+                        &(reflection * fresneleffect
+                            + refreaction * (1f32 - fresneleffect) * sphere.transparency),
+                        &sphere.surface_color,
+                    )
+                } else {
+                    // if it's a diffuse object, no need to raytrace anymore
+                    spheres
+                        .iter()
+                        .filter(|s| s.emission_color.x > 0f32)
+                        .map(|sphere| {
+                            let light_dirction = sphere.center - point_of_hit;
+                            let light_dirction = light_dirction.normalize();
+
+                            if spheres
+                                .iter()
+                                .filter(|&s| std::ptr::eq(s, sphere))
+                                .any(|s2| {
+                                    // because intersection is check dot so self will not intersect
+                                    s2.intersect(
+                                        &(point_of_hit + normal_at_hit * bias),
+                                        &light_dirction,
+                                    )
+                                    .is_some()
+                                })
+                            {
+                                nalgebra::zero()
+                            } else {
+                                mul_color(
+                                    &(sphere.surface_color
+                                        * 0f32.max(normal_at_hit.dot(&light_dirction))),
+                                    &sphere.emission_color,
+                                )
+                            }
+                        })
+                        .sum()
+                };
+            surface_color + sphere.emission_color
         }
     }
+}
+
+pub fn render(spheres: &Vec<sphere::Sphere>) -> std::io::Result<()> {
+    let (width, height) = (640, 480);
+    let mut image = vec![nalgebra::zero(); width * height];
+
+    let (inv_width, inv_height) = (1f32 / width as f32, 1f32 / height as f32);
+    let fov = 30f32;
+    let aspect_ratio = width as f32 / height as f32;
+
+    let angle = (std::f32::consts::PI * 0.5 * fov / 180f32).tan();
+
+    // trace trays
+    let mut pixel_index = 0;
+    for y in 0..height {
+        for x in 0..width {
+            let xx = (2f32 * ((x as f32 + 0.5) * inv_width) - 1f32) * angle * aspect_ratio;
+            let yy = (1f32 - 2f32 * ((y as f32 + 0.5) * inv_height)) * angle;
+
+            let raydir = Vector3f::new(xx, yy, -1f32);
+            let raydir = raydir.normalize();
+
+            image[pixel_index] = trace(nalgebra::zero(), raydir, spheres, 0);
+            pixel_index += 1;
+        }
+    }
+
+    // save result to a PPM image
+    // let mut file = fs::File::create("./untitled.ppm")?;
+    // file.write(format!("P6\n{} {}\n255\n", width, height).as_bytes())?;
+    // image.iter().for_each(|pixel| {
+    //     file.write(&[
+    //         (1f32.min(pixel.x) * 255f32) as u8,
+    //         (1f32.min(pixel.y) * 255f32) as u8,
+    //         (1f32.min(pixel.z) * 255f32) as u8,
+    //     ])
+    //     .unwrap();
+    // });
+
+    let mut buffer = Vec::with_capacity(width as usize * height as usize);
+    image.iter().for_each(|pixel| {
+        buffer.push(1f32.min(pixel.x) * 255f32);
+        buffer.push(1f32.min(pixel.y) * 255f32);
+        buffer.push(1f32.min(pixel.z) * 255f32);
+    });
+    let ptr = buffer.as_mut_ptr() as *mut std::ffi::c_void;
+    let mut ret = Mat::default().unwrap();
+    unsafe {
+        let image = Mat::new_rows_cols_with_data(
+            width as i32,
+            height as i32,
+            core::CV_32FC3,
+            ptr,
+            core::Mat_AUTO_STEP,
+        )
+        .expect("build image fail");
+        image
+            .convert_to(&mut ret, core::CV_8UC3, 1f64, 0f64)
+            .expect("convert err");
+    }
+    imgcodecs::imwrite("output.png", &ret, &core::Vector::new()).unwrap();
+    Ok(())
 }
