@@ -32,8 +32,8 @@ impl Sphere {
         radius: f32,
         surface_color: Vector3f,
         emission_color: Vector3f,
-        transparency: f32,
         reflection: f32,
+        transparency: f32,
     ) -> Self {
         Sphere {
             center,
