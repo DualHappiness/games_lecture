@@ -3,8 +3,8 @@ use na::{Vector2, Vector3, Vector4};
 
 #[derive(Debug, Default)]
 pub struct Triangle {
-    v: [Vector3<f32>; 3],
-    color: [Vector3<f32>; 3],
+    pub v: [Vector3<f32>; 3],
+    pub color: [Vector3<f32>; 3],
     tex_coords: [Vector2<f32>; 3],
     normal: [Vector3<f32>; 3],
 }
@@ -51,5 +51,9 @@ impl Triangle {
             .enumerate()
             .for_each(|(i, v)| *v = Vector4::new(self.v[i].x, self.v[i].y, self.v[i].z, 1.0));
         ret
+    }
+
+    pub fn get_color(&self) -> Vector3<f32> {
+        self.color[0] * 255f32
     }
 }
