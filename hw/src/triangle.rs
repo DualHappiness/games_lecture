@@ -1,12 +1,12 @@
 extern crate nalgebra as na;
 use na::{Vector2, Vector3, Vector4};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Triangle {
-    pub v: [Vector3<f32>; 3],
+    pub v: [Vector4<f32>; 3],
     pub color: [Vector3<f32>; 3],
-    tex_coords: [Vector2<f32>; 3],
-    normal: [Vector3<f32>; 3],
+    pub tex_coords: [Vector2<f32>; 3],
+    pub normal: [Vector3<f32>; 3],
 }
 
 impl Triangle {
@@ -14,17 +14,17 @@ impl Triangle {
         Default::default()
     }
 
-    pub fn a(&self) -> Vector3<f32> {
+    pub fn a(&self) -> Vector4<f32> {
         self.v[0]
     }
-    pub fn b(&self) -> Vector3<f32> {
+    pub fn b(&self) -> Vector4<f32> {
         self.v[1]
     }
-    pub fn c(&self) -> Vector3<f32> {
+    pub fn c(&self) -> Vector4<f32> {
         self.v[2]
     }
 
-    pub fn set_vertex(&mut self, ind: usize, ver: Vector3<f32>) {
+    pub fn set_vertex(&mut self, ind: usize, ver: Vector4<f32>) {
         self.v[ind] = ver;
     }
 

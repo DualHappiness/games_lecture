@@ -2,8 +2,7 @@ use nalgebra::{Point3, Vector3};
 use opencv::{core, highgui, imgcodecs, prelude::*};
 use std::env;
 
-mod rasterizer;
-mod triangle;
+use opencv_learn::{rasterizer};
 
 const SIZE: i32 = 700;
 
@@ -68,10 +67,7 @@ fn main() {
         Point3::new(2.5, 1.5, -5f32),
         Point3::new(-1f32, 0.5, -5f32),
     ];
-    let ind = vec![
-        Vector3::new(0, 1, 2), 
-        Vector3::new(3, 4, 5),
-        ];
+    let ind = vec![Vector3::new(0, 1, 2), Vector3::new(3, 4, 5)];
 
     let pos_id = r.load_positions(&points);
     let ind_id = r.load_indices(&ind);
