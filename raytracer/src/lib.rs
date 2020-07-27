@@ -1,6 +1,6 @@
 use nalgebra::Vector3;
 use opencv::{core, imgcodecs, prelude::*};
-use f32::INFINITY;
+use std::f32::INFINITY;
 use std::fs;
 use std::io::prelude::*;
 
@@ -8,7 +8,7 @@ pub mod sphere;
 
 type Vector3f = Vector3<f32>;
 
-const MAX_DEPTH: i32 = 5;
+const MAX_DEPTH: i32 = 2;
 fn mix(a: f32, b: f32, mix: f32) -> f32 {
     b * mix + a * (1f32 - mix)
 }
