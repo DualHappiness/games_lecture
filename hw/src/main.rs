@@ -1,8 +1,8 @@
-use nalgebra::{Point3, Vector3};
+use nalgebra::{Point3, Vector3, Vector4};
 use opencv::{core, highgui, imgcodecs, prelude::*};
+use opencv_learn::{obj_loader::Loader, rasterizer, triangle::Triangle};
+use std::default::Default;
 use std::env;
-
-use opencv_learn::{rasterizer};
 
 const SIZE: i32 = 700;
 
@@ -44,7 +44,33 @@ fn main() {
     let mut command_line = false;
     let mut filename = "output.png";
 
-    let mut angle = 0f32;
+    let mut triangles = vec![];
+    // load obj file
+    {
+        let obj_path = "./models/spot".to_owned();
+        let mut loader: Loader = Default::default();
+        loader
+            .load_file(&(obj_path + "/spot_triangulated_good.obj"))
+            .expect("load file err");
+        for mesh in &loader.loaded_meshes {
+            let mut index = 0;
+            while index < mesh.vertices.len() {
+                let mut t: Triangle = Default::default();
+                for j in 0..3 {
+                    let vert = mesh.vertices[index + j];
+                    t.set_vertex(
+                        j,
+                        Vector4::new(vert.position.x, vert.position.y, vert.position.z, 1f32),
+                    );
+                    // todo 
+
+                }
+                triangles.push(t);
+            }
+        }
+    }
+
+    let mut angle = 140f32;
 
     if args.len() >= 3 {
         command_line = true;

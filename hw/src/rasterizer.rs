@@ -269,7 +269,7 @@ impl Rasterizer<'_> {
                 // {
                 let sub_index = 1;
                 let (dx, dy) = (0.5, 0.5);
-                let (x, y) = (i as f32 + dy, j as f32 + dy);
+                let (x, y) = (i as f32 + dx, j as f32 + dy);
                 if Self::inside_triangle(x, y, &v3s) {
                     #[cfg(feature = "show_print")]
                     println!("inside pos is {}, {}", i, j);
