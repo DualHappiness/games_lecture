@@ -33,7 +33,10 @@
             },
             "preLaunchTask": "build",
             "terminal": "console",
-            "args": [],
+            "args": [
+                "output.png",
+                "texture"
+            ],
             "env": {},
         }
     ]

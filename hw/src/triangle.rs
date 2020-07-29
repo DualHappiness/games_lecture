@@ -41,8 +41,8 @@ impl Triangle {
         }
     }
 
-    pub fn set_tex_coord(&mut self, ind: usize, s: f32, t: f32) {
-        self.tex_coords[ind] = Vector2::new(s, t)
+    pub fn set_tex_coord(&mut self, ind: usize, uv: Vector2<f32>) {
+        self.tex_coords[ind] = uv;
     }
 
     pub fn to_vector4(&self) -> [Vector4<f32>; 3] {

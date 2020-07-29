@@ -88,9 +88,9 @@ pub struct Rasterizer<'a> {
     height: i32,
     next_id: usize,
 
-    texture: Option<&'a super::texture::Texture>,
-    vertex_shader: Option<&'a dyn Fn(VertexShaderPayload) -> Vector3f>,
-    fragment_shader: Option<&'a dyn Fn(FragmentShaderPayload) -> Vector3f>,
+    texture: Option<super::texture::Texture>,
+    vertex_shader: Option<&'a dyn Fn(&VertexShaderPayload) -> Vector3f>,
+    fragment_shader: Option<&'a dyn Fn(&FragmentShaderPayload) -> Vector3f>,
 }
 
 // constructors
@@ -147,16 +147,20 @@ impl<'a> Rasterizer<'a> {
         self.projection = p.clone();
     }
 
+    pub fn set_texture(&mut self, tex: super::texture::Texture) {
+        self.texture = Some(tex);
+    }
+
     pub fn set_vertex_shader(
         &mut self,
-        _vertex_shader: &'a dyn Fn(VertexShaderPayload) -> Vector3f,
+        _vertex_shader: &'a dyn Fn(&VertexShaderPayload) -> Vector3f,
     ) {
         self.vertex_shader = Some(_vertex_shader);
     }
 
     pub fn set_fragment_shader(
         &mut self,
-        _fragment_shader: &'a dyn Fn(FragmentShaderPayload) -> Vector3f,
+        _fragment_shader: &'a dyn Fn(&FragmentShaderPayload) -> Vector3f,
     ) {
         self.fragment_shader = Some(_fragment_shader)
     }
@@ -296,10 +300,10 @@ impl Rasterizer<'_> {
                             interpolated_color,
                             interpolated_normal,
                             interpolated_texcoords,
-                            self.texture,
+                            self.texture.as_ref(),
                         );
                         payload.view_pos = interpolated_shadingcoords;
-                        let color = self.fragment_shader.unwrap()(payload);
+                        let color = self.fragment_shader.unwrap()(&payload);
                         self.set_pixel(&Vector3::new(i, j, 1), sub_index, &color);
                     }
                     // }

@@ -106,7 +106,7 @@ mod algorithm {
 
     pub fn get_vector3_from_line(line: &str) -> Vector3f {
         let t = tail(&line);
-        let s = split(&line, " ");
+        let s = split(&t, " ");
         assert_eq!(s.len(), 3);
         Vector3f::from_column_slice(&parse_str_vec(s))
     }
@@ -122,7 +122,7 @@ mod algorithm {
     }
 
     pub fn tail(s: &str) -> String {
-        let last = s.chars().rev().take_while(|c| !is_space(c)).count();
+        let last = s.chars().rev().take_while(is_space).count();
         s.chars()
             .take(s.len() - last)
             .skip_while(is_space)
@@ -165,8 +165,7 @@ impl Loader {
         let no_normal = algorithm::split(&algorithm::tail(line), " ")
             .iter()
             .map(|face| {
-                let t = algorithm::tail(&face);
-                let svert = algorithm::split(&t, "/");
+                let svert = algorithm::split(&face, "/");
                 assert!(!svert.is_empty());
                 let mut vertex: Vertex = Default::default();
                 vertex.position = algorithm::get_element(positions, svert[0]);
@@ -355,33 +354,36 @@ impl Loader {
         let mut normals = vec![];
         let mut vertices = vec![];
         let mut indices = vec![];
-        let mut mesh_mat_names = vec![];
+        let mut mesh_mat_names: Vec<String> = vec![];
 
         let mut listening = false;
         let mut mesh_name = "".to_owned();
 
-        #[cfg(feather = "show_loader_print")]
-        let mut output_every_nth = 1000;
-        #[cfg(feather = "show_loader_print")]
+        #[cfg(feature = "show_loader_print")]
+        let output_every_nth = 1000;
+        #[cfg(feature = "show_loader_print")]
         let mut output_indicator = output_every_nth;
 
         for line in f.lines().map(|l| l.unwrap()) {
-            #[cfg(feather = "show_loader_print")]
+            #[cfg(feature = "show_loader_print")]
             {
                 output_indicator = (output_indicator + 1) % output_every_nth;
-                if output_indicator == 1 && !mesh_name.is_empty() {
+                if output_indicator == 1 {
                     print!("\r- {}", mesh_name);
                     print!("\t| vertices > {}", positions.len());
                     print!("\t| texcoords > {}", tex_coords.len());
                     print!("\t| normals > {}", normals.len());
                     print!("\t| triangles > {}", vertices.len() / 3);
-                    print!("\t| material: {}", mesh_mat_names.last().unwrap_or(""));
+                    print!(
+                        "\t| material: {}",
+                        mesh_mat_names.last().unwrap_or(&" ".to_owned())
+                    );
                     println!("")
                 }
             }
 
             match &algorithm::first_token(&line)[..] {
-                s if s == "o" || s == "g" || line.chars().nth(0).unwrap() == 'g' => {
+                s if s == "o" || s == "g" || line.chars().nth(0).unwrap_or(' ') == 'g' => {
                     if listening && !indices.is_empty() && !vertices.is_empty() {
                         let mut temp = Mesh::new(vertices.clone(), indices.clone());
                         temp.name = mesh_name.to_string();
@@ -398,9 +400,9 @@ impl Loader {
                             _ => "unnamed".to_owned(),
                         }
                     }
-                    #[cfg(feather = "show_loader_print")]
+                    #[cfg(feature = "show_loader_print")]
                     {
-                        println!("");
+                        // println!("");
                         output_indicator = 0;
                     }
                 }
@@ -416,12 +418,12 @@ impl Loader {
                     let verts =
                         Self::gen_vertices_from_raw_obj(&positions, &tex_coords, &normals, &line);
                     let vert_len = verts.len();
-                    for vert in verts {
+                    for &vert in &verts {
                         vertices.push(vert);
                         self.loaded_vertices.push(vert);
                     }
 
-                    let inds = Self::vertex_triangluation(&vertices);
+                    let inds = Self::vertex_triangluation(&verts);
 
                     let vert_offset = vertices.len() - vert_len;
                     let loaded_vert_offset = self.loaded_vertices.len() - vert_len;
@@ -440,7 +442,7 @@ impl Loader {
                         indices.clear();
                         temp_mesh.name = mesh_name.to_string();
                         // ! 不知道他这里在干啥  感觉应该是个bug
-                        #[cfg(feather = "bug?")]
+                        #[cfg(feature = "bug?")]
                         {
                             let mut i = 2;
                             loop {
@@ -455,7 +457,7 @@ impl Loader {
                         self.loaded_meshes.push(temp_mesh);
                     }
 
-                    #[cfg(feather = "show_loader_print")]
+                    #[cfg(feature = "show_loader_print")]
                     {
                         output_indicator = 0;
                     }
@@ -467,40 +469,41 @@ impl Loader {
                         .fold("".to_owned(), |acc, cur| acc + cur + "/")
                         .to_string();
                     pathtomat += &algorithm::tail(&line);
-                    #[cfg(feather = "show_loader_print")]
+                    #[cfg(feature = "show_loader_print")]
                     {
                         println!("");
                         println!("- find material in: {}", pathtomat);
                     }
-                    self.load_materials(&pathtomat);
+                    self.load_materials(&pathtomat).expect("load materials err");
                 }
-                _ => panic!("wrong format"),
+                s if s.chars().nth(0).unwrap_or('#') == '#' => (),
+                s => panic!("wrong format: {}", s),
             }
+        }
 
-            #[cfg(feather = "show_loader_print")]
+        #[cfg(feature = "show_loader_print")]
+        {
+            // println!("");
+        }
+
+        if !indices.is_empty() && !vertices.is_empty() {
+            let mut temp = Mesh::new(vertices.clone(), indices.clone());
+            temp.name = mesh_name.to_owned();
+
+            self.loaded_meshes.push(temp);
+        }
+
+        for i in 0..mesh_mat_names.len() {
+            match self
+                .loaded_materials
+                .iter()
+                .find(|mat| mat.name == mesh_mat_names[i])
             {
-                println!("");
-            }
-
-            if !indices.is_empty() && !vertices.is_empty() {
-                let mut temp = Mesh::new(vertices.clone(), indices.clone());
-                temp.name = mesh_name.to_owned();
-
-                self.loaded_meshes.push(temp);
-            }
-
-            for i in 0..mesh_mat_names.len() {
-                match self
-                    .loaded_materials
-                    .iter()
-                    .find(|mat| mat.name == mesh_mat_names[i])
-                {
-                    None => println!(
-                        "no material found, mesh: {}, mat name: {}",
-                        self.loaded_meshes[i].name, mesh_mat_names[i]
-                    ),
-                    Some(mat) => self.loaded_meshes[i].material = mat.clone(),
-                }
+                None => println!(
+                    "no material found, mesh: {}, mat name: {}",
+                    self.loaded_meshes[i].name, mesh_mat_names[i]
+                ),
+                Some(mat) => self.loaded_meshes[i].material = mat.clone(),
             }
         }
         if self.loaded_meshes.is_empty()

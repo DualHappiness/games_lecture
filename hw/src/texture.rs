@@ -16,7 +16,7 @@ impl Texture {
             imgproc::COLOR_RGB2BGR,
             0,
         )
-        .expect("convert color error");
+        .expect(&format!("convert color error: {}", name));
         let (width, height) = (image_data.cols(), image_data.rows());
         Self {
             image_data,

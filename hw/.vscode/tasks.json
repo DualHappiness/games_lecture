@@ -6,7 +6,9 @@
             "type": "shell",
             "command": "cargo",
             "args": [
-                "build"
+                "build",
+                "--features",
+                "show_loader_print"
             ],
         }
     ]

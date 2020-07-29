@@ -90,6 +90,10 @@ pub struct Light {
     intensity: Vector3f,
 }
 
+fn scale(a: Vector3f, b: Vector3f) -> Vector3f {
+    Vector3f::new(a.x * b.x, a.y * b.y, a.z * b.z)
+}
+
 fn blinn_phone_calc(
     ka: Vector3f,
     kd: Vector3f,
@@ -113,7 +117,24 @@ fn blinn_phone_calc(
     let p: i32 = 150;
 
     let eye_pos: Vector3f = Vector3::new(0f32, 0f32, 10f32);
-    Vector3f::from_element(0f32) * 255f32
+
+    let mut ret: Vector3f = nalgebra::zero();
+    for light in lights {
+        let l = (light.position - point).normalize();
+        let dis_sqrt = l.magnitude_squared();
+        let ld = scale(kd, (light.intensity / dis_sqrt) * 0f32.max(normal.dot(&l)));
+
+        let v = (eye_pos - point).normalize();
+        let h = (l + v) / (l + v).magnitude();
+        let ls = scale(ks, (light.intensity / dis_sqrt) * 0f32.max(normal.dot(&h)));
+
+        ret += ld;
+        ret += ls;
+    }
+    let la = scale(ka, ambient_light_intensity);
+    ret += la;
+
+    ret * 255f32
 }
 
 pub fn texture_fragment_shader(payload: &shader::FragmentShaderPayload) -> Vector3f {

@@ -1,6 +1,6 @@
-use nalgebra::{Point3, Vector3, Vector4};
+use nalgebra::{Vector3, Vector4};
 use opencv::{core, highgui, imgcodecs, prelude::*};
-use opencv_learn::{obj_loader::Loader, rasterizer, triangle::Triangle};
+use opencv_learn::{obj_loader::Loader, rasterizer, texture::Texture, triangle::Triangle, *};
 use std::default::Default;
 use std::env;
 
@@ -10,9 +10,7 @@ fn draw_image(
     angle: &f32,
     eye_pos: &Vector3<f32>,
     r: &mut rasterizer::Rasterizer,
-    pos_id: rasterizer::PosBufID,
-    ind_id: rasterizer::IndBufID,
-    col_id: rasterizer::ColBufID,
+    triangle_list: &Vec<triangle::Triangle>,
 ) -> Mat {
     r.clear(rasterizer::Buffers::Color | rasterizer::Buffers::Depth);
 
@@ -22,7 +20,7 @@ fn draw_image(
         120f32, 1f32, 5f32, 10f32,
     ));
 
-    r.draw(pos_id, ind_id, col_id, rasterizer::Primitive::Triangle);
+    r.draw_triangles(&triangle_list.iter().map(|t| t).collect());
     let mut buf = r.frame_buffer();
     let ptr = buf.as_mut_ptr() as *mut std::ffi::c_void;
     let mut ret = Mat::default().unwrap();
@@ -45,12 +43,12 @@ fn main() {
     let mut filename = "output.png";
 
     let mut triangles = vec![];
+    let obj_path = "./models/spot/".to_owned();
     // load obj file
     {
-        let obj_path = "./models/spot".to_owned();
         let mut loader: Loader = Default::default();
         loader
-            .load_file(&(obj_path + "/spot_triangulated_good.obj"))
+            .load_file(&(obj_path.clone() + "spot_triangulated_good.obj"))
             .expect("load file err");
         for mesh in &loader.loaded_meshes {
             let mut index = 0;
@@ -62,67 +60,66 @@ fn main() {
                         j,
                         Vector4::new(vert.position.x, vert.position.y, vert.position.z, 1f32),
                     );
-                    // todo 
-
+                    t.set_normal(j, vert.normal);
+                    t.set_tex_coord(j, vert.texture_coordinates);
                 }
                 triangles.push(t);
+                index += 3;
             }
         }
     }
 
     let mut angle = 140f32;
+    let mut r = rasterizer::Rasterizer::new(SIZE, SIZE);
 
-    if args.len() >= 3 {
+    let texture_path = "hmap.png";
+    r.set_texture(Texture::new(&(obj_path.clone() + texture_path)));
+
+    let mut active_shader: fn(&shader::FragmentShaderPayload) -> Vector3f = phone_fragment_shader;
+    if args.len() >= 2 {
         command_line = true;
-        angle = args[2].parse().unwrap();
-
-        if args.len() >= 4 {
-            filename = &args[3];
+        filename = &args[1];
+        if args.len() >= 3 {
+            match &args[2][..] {
+                "texture" => {
+                    println!("Rasterizing using the texture shader");
+                    active_shader = texture_fragment_shader;
+                    r.set_texture(Texture::new(&(obj_path.clone() + "spot_texture.png")));
+                }
+                "normal" => {
+                    println!("Rasterizing using the normal shader");
+                    active_shader = normal_fragment_shader;
+                }
+                "phong" => {
+                    println!("Rasterizing using the phong shader");
+                    active_shader = phone_fragment_shader;
+                }
+                "bump" => {
+                    println!("Rasterizing using the bump shader");
+                    active_shader = bump_fragment_shader;
+                }
+                "displacement" => {
+                    println!("Resterizing using the displacement shader");
+                    active_shader = displacement_fragment_shader;
+                }
+                arg => println!("error shader argument {}", arg),
+            }
         }
     }
 
-    let mut r = rasterizer::Rasterizer::new(SIZE, SIZE);
+    r.set_fragment_shader(&active_shader);
+    r.set_vertex_shader(&vertex_shader);
 
     let eye_pos = Vector3::new(0f32, 0f32, 5f32);
-
-    let points = vec![
-        Point3::new(2f32, 0f32, -2f32),
-        Point3::new(0f32, 2f32, -2f32),
-        Point3::new(-2f32, 0f32, -2f32),
-        Point3::new(3.5, -1f32, -5f32),
-        Point3::new(2.5, 1.5, -5f32),
-        Point3::new(-1f32, 0.5, -5f32),
-    ];
-    let ind = vec![Vector3::new(0, 1, 2), Vector3::new(3, 4, 5)];
-
-    let pos_id = r.load_positions(&points);
-    let ind_id = r.load_indices(&ind);
-
-    let colors = vec![
-        Vector3f::new(217.0, 238.0, 185.0),
-        Vector3f::new(217.0, 238.0, 185.0),
-        Vector3f::new(217.0, 238.0, 185.0),
-        Vector3f::new(185.0, 217.0, 238.0),
-        Vector3f::new(185.0, 217.0, 238.0),
-        Vector3f::new(185.0, 217.0, 238.0),
-    ];
-    let col_id = r.load_colors(&colors);
     let mut key = 0 as u8;
     // let mut frame_count = 0;
 
     if command_line {
-        let image = draw_image(&angle, &eye_pos, &mut r, pos_id, ind_id, col_id);
+        let image = draw_image(&angle, &eye_pos, &mut r, &triangles);
         imgcodecs::imwrite(filename, &image, &core::Vector::new()).unwrap();
     } else {
         while key != 27 {
-            let image = draw_image(
-                &angle,
-                &eye_pos,
-                &mut r,
-                pos_id.clone(),
-                ind_id.clone(),
-                col_id.clone(),
-            );
+            let image = draw_image(&angle, &eye_pos, &mut r, &triangles);
 
             highgui::imshow("show image", &image).unwrap();
             key = highgui::wait_key(0).unwrap() as u8;
