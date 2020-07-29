@@ -17,7 +17,7 @@ fn draw_image(
     r.set_model(&opencv_learn::get_model_matrix(*angle));
     r.set_view(&opencv_learn::get_view_matrix(*eye_pos));
     r.set_projection(&opencv_learn::get_projection_matrix(
-        120f32, 1f32, 5f32, 10f32,
+        45f32, 1f32, 0.1f32, 50f32,
     ));
 
     r.draw_triangles(&triangle_list.iter().map(|t| t).collect());
@@ -72,7 +72,7 @@ fn main() {
     let mut angle = 140f32;
     let mut r = rasterizer::Rasterizer::new(SIZE, SIZE);
 
-    let texture_path = "hmap.png";
+    let texture_path = "hmap.jpg";
     r.set_texture(Texture::new(&(obj_path.clone() + texture_path)));
 
     let mut active_shader: fn(&shader::FragmentShaderPayload) -> Vector3f = phone_fragment_shader;

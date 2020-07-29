@@ -20,15 +20,21 @@ pub fn get_view_matrix(eye_pos: Vector3<f32>) -> Matrix4<f32> {
 pub fn get_model_matrix(rotation_angle: f32) -> Matrix4<f32> {
     let angle = rotation_angle / 180.0 * std::f32::consts::PI;
 
-    let translate = Matrix4::from_columns(&[
-        Vector4::new(angle.cos(), angle.sin(), 0.0, 0.0),
-        Vector4::new(-angle.sin(), angle.cos(), 0.0, 0.0),
-        Vector4::z(),
+    let rotation = Matrix4::from_columns(&[
+        Vector4::new(angle.cos(), 0f32, angle.sin(), 0.0),
+        Vector4::y(),
+        Vector4::new(-angle.sin(), 0f32, angle.cos(), 0.0),
         Vector4::w(),
     ]);
 
-    translate
-    // Matrix4::identity()
+    let scale = Matrix4::from_columns(&[
+        Vector4::x() * 2.5,
+        Vector4::y() * 2.5,
+        Vector4::z() * 2.5,
+        Vector4::w(),
+    ]);
+
+    rotation * scale
 }
 
 pub fn get_projection_matrix(

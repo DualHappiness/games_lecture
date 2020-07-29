@@ -81,7 +81,7 @@ pub struct Rasterizer<'a> {
     normal_id: Option<usize>,
     normal_buf: HashMap<usize, Vec<Vector3f>>,
 
-    frame_buf: Vec<[Vector3<f32>; 1]>,
+    frame_buf: Vec<[Vector3<f32>; 4]>,
     depth_buf: Vec<[f32; 4]>,
 
     width: i32,
@@ -102,7 +102,7 @@ impl Rasterizer<'_> {
             ..Default::default()
         };
         ret.frame_buf
-            .resize((width * height) as usize, [na::zero(); 1]);
+            .resize((width * height) as usize, [na::zero(); 4]);
         ret.depth_buf.resize((width * height) as usize, [0f32; 4]);
         ret
     }
@@ -185,7 +185,7 @@ impl Rasterizer<'_> {
         if (buff.clone() & Buffers::Color) == Buffers::Color {
             self.frame_buf
                 .iter_mut()
-                .for_each(|f| *f = [Vector3::new(0.0, 0.0, 0.0); 1]);
+                .for_each(|f| *f = [Vector3::new(0.0, 0.0, 0.0); 4]);
         }
         if (buff.clone() & Buffers::Depth) == Buffers::Depth {
             self.depth_buf.iter_mut().for_each(|d| *d = [f32::MIN; 4]);
@@ -263,15 +263,15 @@ impl Rasterizer<'_> {
         for i in 0..3 {
             v3s[i] = Vector3::new(vs[i].x, vs[i].y, 0f32);
         }
-        for i in lower_bound.0 as i32..upper_bound.0 as i32 + 1 {
-            for j in lower_bound.1 as i32..upper_bound.1 as i32 + 1 {
+        for i in 0i32.max(lower_bound.0 as i32)..self.height.min(upper_bound.0 as i32 + 1) {
+            for j in 0i32.max(lower_bound.1 as i32)..self.width.min(upper_bound.1 as i32 + 1) {
                 // // super sampling
                 // for (sub_index, (dx, dy)) in
                 //     [(0.25, 0.25), (0.25, 0.75), (0.75, 0.25), (0.75, 0.75)]
                 //         .iter()
                 //         .enumerate()
                 // {
-                let sub_index = 1;
+                let sub_index = 0;
                 let (dx, dy) = (0.5, 0.5);
                 let (x, y) = (i as f32 + dx, j as f32 + dy);
                 if Self::inside_triangle(x, y, &v3s) {
