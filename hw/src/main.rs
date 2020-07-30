@@ -86,7 +86,7 @@ fn main() {
                 "texture" => {
                     println!("Rasterizing using the texture shader");
                     active_shader = texture_fragment_shader;
-                    r.set_texture(Texture::new(&(obj_path.clone() + "spot_texture.png")));
+                    r.set_texture(Texture::new(&(obj_path.clone() + "spot_texture_low.png")));
                 }
                 "normal" => {
                     println!("Rasterizing using the normal shader");

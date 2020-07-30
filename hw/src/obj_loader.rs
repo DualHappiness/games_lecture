@@ -333,7 +333,7 @@ impl Loader {
                 "map_d" => temp.map_d = algorithm::tail(&line),
                 // bump map
                 "map_Bump" | "map_bump" | "bump" => temp.map_bump = algorithm::tail(&line),
-                _ => panic!("wrong material format"),
+                _ => (),
             };
         }
         self.loaded_materials.push(temp);
@@ -466,7 +466,9 @@ impl Loader {
                     let temp = algorithm::split(&path, "/");
                     let mut pathtomat = temp
                         .iter()
-                        .fold("".to_owned(), |acc, cur| acc + cur + "/")
+                        .rev()
+                        .skip(1)
+                        .fold("".to_owned(), |acc, &cur| cur.to_string() + "/" + &acc)
                         .to_string();
                     pathtomat += &algorithm::tail(&line);
                     #[cfg(feature = "show_loader_print")]
@@ -476,8 +478,7 @@ impl Loader {
                     }
                     self.load_materials(&pathtomat).expect("load materials err");
                 }
-                s if s.chars().nth(0).unwrap_or('#') == '#' => (),
-                s => panic!("wrong format: {}", s),
+                _ => (),
             }
         }
 

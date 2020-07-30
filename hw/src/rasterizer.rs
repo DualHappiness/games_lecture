@@ -47,7 +47,7 @@ pub struct ColBufID {
 extern crate nalgebra as na;
 use super::shader::*;
 use super::triangle::Triangle;
-use na::{Matrix4, Point3, Vector2, Vector3, Vector4};
+use na::{Matrix4, Point3, Vector3, Vector4};
 use std::collections::HashMap;
 
 type Vector3f = Vector3<f32>;

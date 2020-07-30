@@ -7,7 +7,7 @@ pub mod triangle;
 use nalgebra::{Matrix3, Matrix4, Vector3, Vector4};
 
 const MY_PI: f32 = 3.1415926;
-const TWO_PI: f32 = 2f32 * MY_PI;
+const _TWO_PI: f32 = 2f32 * MY_PI;
 
 type Vector3f = Vector3<f32>;
 pub fn get_view_matrix(eye_pos: Vector3<f32>) -> Matrix4<f32> {
@@ -160,7 +160,7 @@ fn blinn_phone_calc(
 pub fn texture_fragment_shader(payload: &shader::FragmentShaderPayload) -> Vector3f {
     let texture_color = match payload.texture {
         None => nalgebra::zero(),
-        Some(texture) => texture.get_color(payload.tex_coords[0], payload.tex_coords[1]),
+        Some(texture) => texture.get_color_bilinear(payload.tex_coords[0], payload.tex_coords[1]),
     };
 
     let ka = Vector3f::from_element(0.005);
