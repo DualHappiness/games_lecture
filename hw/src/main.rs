@@ -1,5 +1,5 @@
 use nalgebra::{Vector3, Vector4};
-use opencv::{core, highgui, imgcodecs, prelude::*};
+use opencv::{core, highgui, imgcodecs, imgproc, prelude::*};
 use opencv_learn::{obj_loader::Loader, rasterizer, texture::Texture, triangle::Triangle, *};
 use std::default::Default;
 use std::env;
@@ -28,9 +28,11 @@ fn draw_image(
         let image =
             Mat::new_rows_cols_with_data(SIZE, SIZE, core::CV_32FC3, ptr, core::Mat_AUTO_STEP)
                 .expect("build image fail");
+        let mut temp = Mat::default().unwrap();
         image
-            .convert_to(&mut ret, core::CV_8UC3, 1f64, 0f64)
+            .convert_to(&mut temp, core::CV_8UC3, 1f64, 0f64)
             .expect("convert err");
+        imgproc::cvt_color(&temp, &mut ret, imgproc::COLOR_RGB2BGR, 0).expect("cvt color error");
     }
     ret
 }
@@ -110,7 +112,7 @@ fn main() {
     r.set_fragment_shader(&active_shader);
     r.set_vertex_shader(&vertex_shader);
 
-    let eye_pos = Vector3::new(0f32, 0f32, 5f32);
+    let eye_pos = Vector3::new(0f32, 0f32, 10f32);
     let mut key = 0 as u8;
     // let mut frame_count = 0;
 

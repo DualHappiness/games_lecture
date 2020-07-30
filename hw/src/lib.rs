@@ -4,7 +4,10 @@ pub mod shader;
 pub mod texture;
 pub mod triangle;
 
-use nalgebra::{Matrix4, Vector3, Vector4};
+use nalgebra::{Matrix3, Matrix4, Vector3, Vector4};
+
+const MY_PI: f32 = 3.1415926;
+const TWO_PI: f32 = 2f32 * MY_PI;
 
 type Vector3f = Vector3<f32>;
 pub fn get_view_matrix(eye_pos: Vector3<f32>) -> Matrix4<f32> {
@@ -18,12 +21,12 @@ pub fn get_view_matrix(eye_pos: Vector3<f32>) -> Matrix4<f32> {
 }
 
 pub fn get_model_matrix(rotation_angle: f32) -> Matrix4<f32> {
-    let angle = rotation_angle / 180.0 * std::f32::consts::PI;
+    let angle = rotation_angle / 180.0 * MY_PI;
 
     let rotation = Matrix4::from_columns(&[
-        Vector4::new(angle.cos(), 0f32, angle.sin(), 0.0),
+        Vector4::new(angle.cos(), 0f32, -angle.sin(), 0.0),
         Vector4::y(),
-        Vector4::new(-angle.sin(), 0f32, angle.cos(), 0.0),
+        Vector4::new(angle.sin(), 0f32, angle.cos(), 0.0),
         Vector4::w(),
     ]);
 
@@ -44,7 +47,7 @@ pub fn get_projection_matrix(
     z_far: f32,
 ) -> Matrix4<f32> {
     let (n, f) = (z_near, z_far);
-    let t = (eye_fov / 2.0 / 180.0 * std::f32::consts::PI).tan() * n.abs();
+    let t = (eye_fov / 2.0 / 180.0 * MY_PI).tan() * n.abs();
     let r = t * aspect_ratio;
 
     let orthographic_t = Matrix4::from_columns(&[
@@ -71,8 +74,13 @@ pub fn get_projection_matrix(
 
     #[cfg(feature = "show_print")]
     {
+        println!("s: {:?}, t: {:?}", orthographic_s, orthographic_t);
         println!("orthographic : {:?}", orthographic);
         println!("perspective_to_o: {:?}", perspective_to_orthographic);
+        println!(
+            "perspective: {:?}",
+            orthographic * perspective_to_orthographic
+        );
     }
     orthographic * perspective_to_orthographic
 }
@@ -104,7 +112,7 @@ fn blinn_phone_calc(
     ka: Vector3f,
     kd: Vector3f,
     ks: Vector3f,
-    color: Vector3f,
+    _color: Vector3f,
     point: Vector3f,
     normal: Vector3f,
 ) -> Vector3f {
@@ -126,19 +134,25 @@ fn blinn_phone_calc(
 
     let mut ret: Vector3f = nalgebra::zero();
     for light in lights {
-        let l = (light.position - point).normalize();
+        let l = light.position - point;
         let dis_sqrt = l.magnitude_squared();
+
+        let l = l.normalize();
         let ld = scale(kd, (light.intensity / dis_sqrt) * 0f32.max(normal.dot(&l)));
+        ret += ld;
 
         let v = (eye_pos - point).normalize();
         let h = (l + v) / (l + v).magnitude();
-        let ls = scale(ks, (light.intensity / dis_sqrt) * 0f32.max(normal.dot(&h)));
+        let ls = scale(
+            ks,
+            (light.intensity / dis_sqrt) * 0f32.max(normal.dot(&h)).powi(p),
+        );
 
-        ret += ld;
         ret += ls;
+
+        let la = scale(ka, ambient_light_intensity);
+        ret += la;
     }
-    let la = scale(ka, ambient_light_intensity);
-    ret += la;
 
     ret * 255f32
 }
@@ -172,6 +186,32 @@ pub fn phone_fragment_shader(payload: &shader::FragmentShaderPayload) -> Vector3
     blinn_phone_calc(ka, kd, ks, color, point, normal)
 }
 
+fn calc_bump_normal(payload: &shader::FragmentShaderPayload) -> Vector3f {
+    let kh = 0.2;
+    let kn = 0.1;
+
+    let normal = payload.normal;
+    let (x, y, z) = (normal.x, normal.y, normal.z);
+    let t = Vector3f::new(
+        x * y / (x * x + z * z).sqrt(),
+        (x * x + z * z).sqrt(),
+        z * y / (x * x + z * z).sqrt(),
+    );
+    let b = normal.cross(&t);
+
+    let u = payload.tex_coords[0];
+    let v = payload.tex_coords[1];
+    let texture = payload.texture.unwrap();
+    let h = |u, v| texture.get_color(u, v).magnitude();
+
+    let tbn = Matrix3::from_columns(&[t, b, normal]);
+    let du = kh * kn * (h(u + 1f32 / texture.width as f32, v) - h(u, v));
+    let dv = kh * kn * (h(u, v + 1f32 / texture.height as f32) - h(u, v));
+    let ln = Vector3f::new(-du, -dv, 1f32);
+
+    (tbn * ln).normalize()
+}
+
 pub fn displacement_fragment_shader(payload: &shader::FragmentShaderPayload) -> Vector3f {
     let ka = Vector3f::from_element(0.005);
     let kd = payload.color;
@@ -179,21 +219,13 @@ pub fn displacement_fragment_shader(payload: &shader::FragmentShaderPayload) -> 
 
     let color = payload.color;
     let point = payload.view_pos;
-    let normal = payload.normal;
 
-    // todo calc new normal and point
+    let normal = calc_bump_normal(payload);
+
     blinn_phone_calc(ka, kd, ks, color, point, normal)
 }
 
 pub fn bump_fragment_shader(payload: &shader::FragmentShaderPayload) -> Vector3f {
-    let ka = Vector3f::from_element(0.005);
-    let kd = payload.color;
-    let ks = Vector3f::from_element(0.7937);
-
-    let color = payload.color;
-    let point = payload.view_pos;
-    let normal = payload.normal;
-
-    // todo calc new normal and point
-    blinn_phone_calc(ka, kd, ks, color, point, normal)
+    let normal = calc_bump_normal(payload);
+    normal * 255f32
 }

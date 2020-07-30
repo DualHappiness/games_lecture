@@ -6,7 +6,10 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceRoot}/target/debug/opencv_learn.exe",
-            "args": [],
+            "args": [
+                "output.png",
+                "texture"
+            ],
             "stopAtEntry": false,
             "cwd": "${workspaceRoot}",
             "environment": [],
