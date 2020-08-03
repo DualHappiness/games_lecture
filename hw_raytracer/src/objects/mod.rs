@@ -1,5 +1,5 @@
 use super::*;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 #[derive(Default)]
 pub struct Obj {
@@ -11,7 +11,7 @@ pub struct Obj {
     pub specular_exponent: f32,
 }
 
-pub trait Object: Deref<Target = Obj> {
+pub trait Object: Deref<Target = Obj> + DerefMut<Target = Obj> {
     fn intersect(&self, origin: &Vector3f, dir: &Vector3f) -> Option<(f32, usize, Vector2f)>;
 
     fn get_surface_properties(

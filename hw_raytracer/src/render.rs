@@ -1,4 +1,5 @@
 use super::*;
+use std::io::*;
 
 fn deg2rad(deg: &f32) -> f32 {
     deg * PI / 180f32
@@ -156,7 +157,7 @@ pub struct HitPayload {
     pub hit_obj: Rc<RefCell<dyn Object>>,
 }
 
-pub fn render(scene: &Scene) {
+pub fn render(scene: &Scene) -> std::io::Result<()> {
     let mut framebuffer = Vec::with_capacity(scene.width * scene.height);
     let scale = deg2rad(&(scene.fov * 0.5)).tan();
     let aspect_ratio = scene.width as f32 / scene.height as f32;
@@ -169,9 +170,20 @@ pub fn render(scene: &Scene) {
             let y = 0f32;
             todo!();
             let dir = Vector3f::new(x, y, -1f32);
-            framebuffer[m] = cast_ray(eye_pos, &dir, scene, 0);
-            m+=1;
+            framebuffer[m] = cast_ray(&eye_pos, &dir, scene, 0);
+            m += 1;
         }
         update_progress(j as f32 / scene.height as f32);
     }
+
+    let mut fp = std::fs::File::create("binary.ppm")?;
+    fp.write(&format!("P6\n{} {}\n255\n", scene.width, scene.height).as_bytes())?;
+    for i in 0..scene.width * scene.height {
+        let mut color = [0; 3];
+        color[0] = (255f32 * clamp(0f32, 1f32, framebuffer[i].x)) as u8;
+        color[1] = (255f32 * clamp(0f32, 1f32, framebuffer[i].y)) as u8;
+        color[2] = (255f32 * clamp(0f32, 1f32, framebuffer[i].z)) as u8;
+        fp.write(&color)?;
+    }
+    Ok(())
 }

@@ -44,6 +44,12 @@ impl Deref for MeshTriangle {
     }
 }
 
+impl DerefMut for MeshTriangle {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.obj
+    }
+}
+
 impl Object for MeshTriangle {
     fn intersect(&self, origin: &Vector3f, dir: &Vector3f) -> Option<(f32, usize, Vector2f)> {
         let mut ret = None;

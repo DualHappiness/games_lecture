@@ -2,7 +2,7 @@ use super::global::*;
 
 pub struct Light {
     pub position: Vector3f,
-    pub intensity: Vector3f,
+    pub intensity: f32,
 }
 
 impl Light {

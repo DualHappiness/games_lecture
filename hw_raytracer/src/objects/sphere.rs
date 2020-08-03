@@ -26,6 +26,12 @@ impl Deref for Sphere {
     }
 }
 
+impl DerefMut for Sphere {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.obj
+    }
+}
+
 impl Object for Sphere {
     fn intersect(&self, origin: &Vector3f, dir: &Vector3f) -> Option<(f32, usize, Vector2f)> {
         let l = origin - self.center;
