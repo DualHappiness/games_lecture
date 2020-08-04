@@ -134,11 +134,22 @@ pub fn cast_ray(origin: &Vector3f, dir: &Vector3f, scene: &Scene, depth: i32) ->
 
                     let reflection_dir = reflect(&-l, &normal);
                     specular_color += 0f32
-                        .max(-reflection_dir.dot(dir))
-                        .powf(payload.hit_obj.borrow().specular_exponent)
+                        .max(-1f32 * reflection_dir.dot(dir))
+                        .powi(payload.hit_obj.borrow().specular_exponent)
                         * light.intensity
                 }
 
+                // println!("light amt : {}", light_amt);
+                // println!(
+                //     "diffuse color: {}",
+                //     payload.hit_obj.borrow().eval_diffuse_color(&st)
+                // );
+                // println!("specular color: {}", specular_color);
+                // println!(
+                //     "kd: {}, ks: {}",
+                //     payload.hit_obj.borrow().kd,
+                //     payload.hit_obj.borrow().ks
+                // );
                 wise_product(
                     &light_amt,
                     &payload.hit_obj.borrow().eval_diffuse_color(&st),
@@ -158,18 +169,19 @@ pub struct HitPayload {
 }
 
 pub fn render(scene: &Scene) -> std::io::Result<()> {
-    let mut framebuffer = Vec::with_capacity(scene.width * scene.height);
+    let mut framebuffer = vec![nalgebra::zero(); scene.width * scene.height];
     let scale = deg2rad(&(scene.fov * 0.5)).tan();
     let aspect_ratio = scene.width as f32 / scene.height as f32;
+    let (inverse_width, inverse_height) = (1f32 / scene.width as f32, 1f32 / scene.height as f32);
 
+    // 默认屏幕距离为 1
     let eye_pos = nalgebra::zero();
     let mut m = 0;
     for j in 0..scene.height {
         for i in 0..scene.width {
-            let x = 0f32;
-            let y = 0f32;
-            todo!();
-            let dir = Vector3f::new(x, y, -1f32);
+            let x = (2f32 * (i as f32 + 0.5) * inverse_width - 1f32) * scale * aspect_ratio;
+            let y = (2f32 * (scene.height as f32 - j as f32 + 0.5) * inverse_height - 1f32) * scale;
+            let dir = Vector3f::new(x, y, -1f32).normalize();
             framebuffer[m] = cast_ray(&eye_pos, &dir, scene, 0);
             m += 1;
         }

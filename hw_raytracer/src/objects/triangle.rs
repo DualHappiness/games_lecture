@@ -7,7 +7,22 @@ fn ray_triangle_intersect(
     origin: &Vector3f,
     dir: &Vector3f,
 ) -> Option<(f32, Vector2f)> {
-    None
+    let e1 = v1 - v0;
+    let e2 = v2 - v0;
+    let s = origin - v0;
+    let s1 = dir.cross(&e2);
+    let s2 = s.cross(&e1);
+
+    let inverse_s1e1 = 1f32 / s1.dot(&e1);
+    let t = inverse_s1e1 * s2.dot(&e2);
+    let b1 = inverse_s1e1 * s1.dot(&s);
+    let b2 = inverse_s1e1 * s2.dot(&dir);
+
+    if t >= 0f32 && b1 >= 0f32 && b2 >= 0f32 && 1f32 - b1 - b2 >= 0f32 {
+        Some((t, Vector2f::new(b1, b2)))
+    } else {
+        None
+    }
 }
 
 #[derive(Default)]
