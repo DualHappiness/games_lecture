@@ -6,6 +6,16 @@ pub struct Sphere {
     pub center: Vector3f,
     pub radius: f32,
     pub radius2: f32,
+    pub material: Rc<Material>,
+}
+
+impl Clone for Sphere {
+    fn clone(&self) -> Self {
+        Self {
+            material: Rc::clone(&self.material),
+            ..*self
+        }
+    }
 }
 
 impl Sphere {
@@ -33,10 +43,10 @@ impl DerefMut for Sphere {
 }
 
 impl Object for Sphere {
-    fn intersect(&self, origin: &Vector3f, dir: &Vector3f) -> Option<(f32, usize, Vector2f)> {
-        let l = origin - self.center;
-        let a = dir.dot(&dir);
-        let b = 2f32 * dir.dot(&l);
+    fn intersect(&self, ray: &Ray) -> Option<(f32, usize)> {
+        let l = ray.origin - self.center;
+        let a = ray.direction.dot(&ray.direction);
+        let b = 2f32 * ray.direction.dot(&l);
         let c = l.dot(&l) - self.radius2;
         match solve_quadratic(a, b, c) {
             None => None,
@@ -44,7 +54,7 @@ impl Object for Sphere {
                 if t0 < 0f32 && t1 < 0f32 {
                     None
                 } else {
-                    Some((if t0 < 0f32 { t1 } else { t0 }, 0, nalgebra::zero()))
+                    Some((if t0 < 0f32 { t1 } else { t0 }, 0))
                 }
             }
         }
@@ -61,6 +71,26 @@ impl Object for Sphere {
     }
 
     fn eval_diffuse_color(&self, _: &Vector2f) -> Vector3f {
-        self.obj.diffuse_color
+        self.material.color
+    }
+
+    fn get_intersection(&self, ray: &ray::Ray) -> intersection::Intersection {
+        let mut ret: Intersection = Default::default();
+        match self.intersect(&ray) {
+            None => (),
+            Some((t, _)) => {
+                ret.happened = true;
+                ret.coords = ray.origin + ray.direction * t;
+                ret.normal = (ret.coords - self.center).normalize();
+                ret.m = Some(Rc::clone(&self.material));
+                ret.obj = Some(Box::from(self.clone()) as Box<dyn Object>);
+                ret.distance = t;
+            }
+        }
+        ret
+    }
+    fn get_bounds(&self) -> bound::Bound3 {
+        let offset = Vector3f::from_element(self.radius);
+        Bound3::new(self.center - offset, self.center + offset)
     }
 }

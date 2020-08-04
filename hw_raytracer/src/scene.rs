@@ -1,5 +1,7 @@
 use super::*;
 
+
+
 pub struct Scene {
     pub width: usize,
     pub height: usize,
@@ -9,6 +11,7 @@ pub struct Scene {
     pub epsilon: f32,
     objects: Vec<Rc<RefCell<dyn Object>>>,
     lights: Vec<Light>,
+    bvh: Option<BVHAccel>,
 }
 
 impl Default for Scene {
@@ -22,6 +25,7 @@ impl Default for Scene {
             epsilon: 0.00001,
             objects: vec![],
             lights: vec![],
+            bvh: None,
         }
     }
 }
@@ -50,4 +54,17 @@ impl Scene {
     pub fn get_lights(&self) -> &Vec<Light> {
         &self.lights
     }
+
+    pub fn build_bvh(&mut self) {
+        println!(" - Generating BVH...\n\n");
+        self.bvh = Some(BVHAccel::new(&self.objects, 1, SplitMethod::NAIVE));
+    }
+
+    pub fn intersect(&self, ray: &Ray) -> Intersection {
+        match &self.bvh {
+            None => Default::default(),
+            Some(bvh) => bvh.intersect(ray),
+        }
+    }
 }
+

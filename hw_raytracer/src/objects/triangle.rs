@@ -26,6 +26,139 @@ fn ray_triangle_intersect(
 }
 
 #[derive(Default)]
+pub struct Triangle {
+    pub obj: Obj,
+
+    pub v0: Vector3f,
+    pub v1: Vector3f,
+    pub v2: Vector3f,
+
+    pub e1: Vector3f,
+    pub e2: Vector3f,
+
+    pub t0: Vector3f,
+    pub t1: Vector3f,
+    pub t2: Vector3f,
+
+    pub normal: Vector3f,
+    pub material: Option<Rc<Material>>,
+}
+
+impl Clone for Triangle {
+    fn clone(&self) -> Self {
+        let new_mat = match &self.material {
+            None => None,
+            Some(mat) => Some(Rc::clone(mat)),
+        };
+        Self {
+            material: new_mat,
+            ..*self
+        }
+    }
+}
+
+impl Deref for Triangle {
+    type Target = Obj;
+    fn deref(&self) -> &Self::Target {
+        &self.obj
+    }
+}
+
+impl DerefMut for Triangle {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.obj
+    }
+}
+
+impl Triangle {
+    pub fn new([v0, v1, v2]: [Vector3f; 3], material: Option<Rc<Material>>) -> Self {
+        let e1 = v1 - v0;
+        let e2 = v2 - v0;
+        Self {
+            v0,
+            v1,
+            v2,
+            material,
+            e1,
+            e2,
+            normal: e1.cross(&e2).normalize(),
+            ..Default::default()
+        }
+    }
+}
+
+impl Object for Triangle {
+    fn intersect(&self, ray: &ray::Ray) -> Option<(f32, usize)> {
+        None
+        // ! ???
+    }
+    fn get_intersection(&self, ray: &ray::Ray) -> intersection::Intersection {
+        let mut intersection = Intersection::default();
+
+        if ray.direction.dot(&self.normal) > 0f32 {
+            return intersection;
+        }
+
+        let pvec = ray.direction.cross(&self.e2);
+        let det = self.e1.dot(&pvec);
+        if det.abs() < EPSILON {
+            return intersection;
+        }
+
+        let det_inv = 1f32 / det;
+        let tvec = ray.origin - self.v0;
+
+        let u = tvec.dot(&pvec) * det_inv;
+        if u < 0f32 || u > 1f32 {
+            return intersection;
+        }
+
+        let qvec = tvec.cross(&self.e1);
+        let v = ray.direction.dot(&qvec) * det_inv;
+        if v < 0f32 || v > 1f32 {
+            return intersection;
+        }
+
+        if 1f32 - u - v < 0f32 {
+            return intersection;
+        }
+
+        let t_tmp = self.e2.dot(&qvec) * det_inv;
+        if t_tmp < 0f32 {
+            return intersection;
+        }
+
+        intersection.happened = true;
+        intersection.distance = t_tmp;
+        intersection.normal = self.normal;
+        intersection.coords = ray.at(t_tmp);
+        intersection.obj = Some(Box::from(self.clone()) as Box<dyn Object>);
+        intersection.m = match &self.material {
+            None => None,
+            Some(mat) => Some(Rc::clone(mat)),
+        };
+        intersection
+    }
+    fn get_surface_properties(
+        &self,
+        _: &Vector3f,
+        _: &Vector3f,
+        _: &usize,
+        _: &Vector2f,
+    ) -> (Vector3f, Vector2f) {
+        (self.normal, nalgebra::zero())
+    }
+
+    fn eval_diffuse_color(&self, _: &Vector2f) -> Vector3f {
+        Vector3f::from_element(0.5)
+    }
+
+    fn get_bounds(&self) -> bound::Bound3 {
+        union_point(&Bound3::new(self.v0, self.v1), &self.v2)
+    }
+}
+
+#[derive(Default)]
 pub struct MeshTriangle {
     pub obj: Obj,
 
@@ -33,22 +166,61 @@ pub struct MeshTriangle {
     pub num_triangles: usize,
     pub vertex_index: Vec<usize>,
     pub st_coordinates: Vec<Vector2f>,
+
+    pub triangles: Vec<Rc<RefCell<Triangle>>>,
+
+    pub bvh: Option<BVHAccel>,
+    pub m: Material,
+
+    pub bounding_box: Bound3,
 }
 
 impl MeshTriangle {
-    pub fn new(
-        verts: &Vec<Vector3f>,
-        verts_index: &Vec<usize>,
-        num_triangles: usize,
-        st: &Vec<Vector2f>,
-    ) -> Self {
-        Self {
-            num_triangles,
-            vertices: verts.clone(),
-            vertex_index: verts_index.clone(),
-            st_coordinates: st.clone(),
-            ..Default::default()
+    pub fn new(filename: &str) -> Self {
+        let mut ret = Self::default();
+        let mut loader = obj_loader::Loader::default();
+        loader.load_file(filename).expect("load file error");
+        assert_eq!(loader.loaded_meshes.len(), 1);
+
+        let mesh = &loader.loaded_meshes[0];
+        let mut min_vert = Vector3f::from_element(f32::MIN);
+        let mut max_vert = Vector3f::from_element(f32::MAX);
+
+        let mut i = 0;
+        while i < mesh.vertices.len() {
+            let mut face_vertices: [Vector3f; 3] = [nalgebra::zero(); 3];
+            for j in 0..3 {
+                face_vertices[j] = mesh.vertices[i + j].position;
+                min_vert = v3min(&min_vert, &face_vertices[i]);
+                max_vert = v3max(&min_vert, &face_vertices[i]);
+            }
+
+            let mut mat = Material::new(
+                MaterialType::DiffuseAndGlossy,
+                Vector3f::from_element(0.5),
+                nalgebra::zero(),
+            );
+            mat.kd = 0.6;
+            mat.ks = 0f32;
+            mat.specular_exponent = 0;
+
+            ret.triangles.push(Rc::new(RefCell::new(Triangle::new(
+                face_vertices,
+                Some(Rc::from(mat)),
+            ))));
+
+            i += 3;
         }
+        ret.bounding_box = Bound3::new(min_vert, max_vert);
+
+        let ptrs = ret
+            .triangles
+            .iter()
+            .map(|t| Rc::clone(&t))
+            .map(|t| t as Rc<RefCell<dyn Object>>)
+            .collect();
+        ret.bvh = Some(BVHAccel::new(&ptrs, 1, SplitMethod::NAIVE));
+        ret
     }
 }
 
@@ -66,16 +238,16 @@ impl DerefMut for MeshTriangle {
 }
 
 impl Object for MeshTriangle {
-    fn intersect(&self, origin: &Vector3f, dir: &Vector3f) -> Option<(f32, usize, Vector2f)> {
+    fn intersect(&self, ray: &Ray) -> Option<(f32, usize)> {
         let mut ret = None;
         for k in 0..self.num_triangles {
             let v0 = &self.vertices[self.vertex_index[k * 3]];
             let v1 = &self.vertices[self.vertex_index[k * 3 + 1]];
             let v2 = &self.vertices[self.vertex_index[k * 3 + 2]];
 
-            match ray_triangle_intersect(v0, v1, v2, origin, dir) {
+            match ray_triangle_intersect(v0, v1, v2, &ray.origin, &ray.direction) {
                 None => (),
-                Some((t, uv)) => ret = Some((t, k, uv)),
+                Some((t, _uv)) => ret = Some((t, k)),
             }
         }
         ret
@@ -108,5 +280,14 @@ impl Object for MeshTriangle {
         let f = |n| if (n * scale) % 1f32 > 0.5 { 1f32 } else { 0f32 };
         let pattern = f(st.x).powf(f(st.y));
         Vector3f::new(0.815, 0.235, 0.031).lerp(&Vector3f::new(0.937, 0.937, 0.231), pattern)
+    }
+    fn get_intersection(&self, ray: &ray::Ray) -> intersection::Intersection {
+        match &self.bvh {
+            None => Intersection::default(),
+            Some(bvh) => bvh.intersect(&ray),
+        }
+    }
+    fn get_bounds(&self) -> bound::Bound3 {
+        self.bounding_box
     }
 }

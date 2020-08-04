@@ -1,6 +1,7 @@
 use super::*;
 use std::ops::{Deref, DerefMut};
 
+#[derive(Clone, Copy)]
 pub struct Obj {
     pub material_type: MaterialType,
     pub ior: f32,
@@ -24,7 +25,9 @@ impl Default for Obj {
 }
 
 pub trait Object: Deref<Target = Obj> + DerefMut<Target = Obj> {
-    fn intersect(&self, origin: &Vector3f, dir: &Vector3f) -> Option<(f32, usize, Vector2f)>;
+    fn intersect(&self, ray: &Ray) -> Option<(f32, usize)>;
+
+    fn get_intersection(&self, ray: &Ray) -> Intersection;
 
     fn get_surface_properties(
         &self,
@@ -35,6 +38,8 @@ pub trait Object: Deref<Target = Obj> + DerefMut<Target = Obj> {
     ) -> (Vector3f, Vector2f);
 
     fn eval_diffuse_color(&self, _: &Vector2f) -> Vector3f;
+
+    fn get_bounds(&self) -> Bound3;
 }
 
 pub mod sphere;

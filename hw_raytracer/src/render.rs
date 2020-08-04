@@ -1,8 +1,111 @@
 use super::*;
 use std::io::*;
 
+pub struct HitPayload {
+    pub t_near: f32,
+    pub index: usize,
+    // pub uv: Vector2f,
+    pub hit_obj: Rc<RefCell<dyn Object>>,
+}
+
 fn deg2rad(deg: &f32) -> f32 {
     deg * PI / 180f32
+}
+
+pub fn cast_ray(ray: &Ray, scene: &Scene, depth: i32) -> Vector3f {
+    if depth > scene.max_depth {
+        return nalgebra::zero();
+    }
+
+    let intersection = scene.intersect(ray);
+    if !intersection.happened {
+        return scene.background_color;
+    }
+    let hit_point = intersection.coords;
+    let hit_obj = intersection.obj.unwrap();
+    let (normal, st) =
+        hit_obj.get_surface_properties(&hit_point, &ray.direction, &0, &nalgebra::zero());
+
+    let f = |dir: Vector3f, normal| {
+        let ray_origin = if dir.dot(normal) < 0f32 {
+            hit_point - normal * scene.epsilon
+        } else {
+            hit_point + normal * scene.epsilon
+        };
+        cast_ray(&Ray::new(ray_origin, dir, 0f32), scene, depth + 1)
+    };
+    let m = intersection.m.unwrap();
+    match m.r#type {
+        MaterialType::ReflectionAndRefraction => {
+            let reflection_color = f(reflect(&ray.direction, &normal).normalize(), &normal);
+
+            let refraction_color = f(
+                refract(&ray.direction, &normal, &m.ior).normalize(),
+                &normal,
+            );
+            let kr = fresnel(&ray.direction, &normal, &m.ior);
+            reflection_color * kr + refraction_color * (1f32 - kr)
+        }
+        MaterialType::Reflection => {
+            let kr = fresnel(&ray.direction, &normal, &m.ior);
+            let color = f(reflect(&ray.direction, &normal), &normal);
+            color * kr
+        }
+        MaterialType::DiffuseAndGlossy => {
+            let mut light_amt: Vector3f = nalgebra::zero();
+            let mut specular_color: Vector3f = nalgebra::zero();
+            let shadow_point_origin = if normal.dot(&ray.direction) < 0f32 {
+                hit_point + normal * scene.epsilon
+            } else {
+                hit_point - normal * scene.epsilon
+            };
+
+            for light in scene.get_lights() {
+                let l = light.position - hit_point;
+                let dis2 = l.dot(&l);
+                let l = l.normalize();
+
+                light_amt += match trace(&Ray::new(shadow_point_origin, l, 0f32), scene.get_objs())
+                {
+                    Some(shadow_res) if shadow_res.t_near * shadow_res.t_near < dis2 => {
+                        nalgebra::zero()
+                    }
+                    _ => light.intensity * 0f32.max(l.dot(&normal)),
+                };
+
+                let reflection_dir = reflect(&-l, &normal);
+                specular_color += 0f32
+                    .max(-1f32 * reflection_dir.dot(&ray.direction))
+                    .powi(hit_obj.specular_exponent)
+                    * light.intensity
+            }
+
+            wise_product(&light_amt, &hit_obj.eval_diffuse_color(&st)) * hit_obj.kd
+                + specular_color * hit_obj.ks
+        }
+    }
+}
+
+pub fn trace(ray: &Ray, objects: &Vec<Rc<RefCell<dyn Object>>>) -> Option<HitPayload> {
+    let mut t_near = INFINITY;
+    let mut ret = None;
+    for obj in objects {
+        if let Some((t, index)) = obj.borrow().intersect(ray) {
+            if t < t_near {
+                t_near = t;
+                ret = Some(HitPayload {
+                    t_near,
+                    index,
+                    hit_obj: Rc::clone(obj),
+                });
+            }
+        }
+    }
+    ret
+}
+
+fn wise_product(a: &Vector3f, b: &Vector3f) -> Vector3f {
+    Vector3f::new(a.x * b.x, a.y * b.y, a.z * b.z)
 }
 
 fn reflect(input: &Vector3f, normal: &Vector3f) -> Vector3f {
@@ -48,126 +151,6 @@ pub fn fresnel(input: &Vector3f, normal: &Vector3f, ior: &f32) -> f32 {
     }
 }
 
-fn trace(
-    origin: &Vector3f,
-    dir: &Vector3f,
-    objects: &Vec<Rc<RefCell<dyn Object>>>,
-) -> Option<HitPayload> {
-    let mut t_near = INFINITY;
-    let mut ret = None;
-    for obj in objects {
-        if let Some((t, index, uv)) = obj.borrow().intersect(origin, dir) {
-            if t < t_near {
-                t_near = t;
-                ret = Some(HitPayload {
-                    t_near,
-                    index,
-                    uv,
-                    hit_obj: Rc::clone(obj),
-                });
-            }
-        }
-    }
-    ret
-}
-
-fn wise_product(a: &Vector3f, b: &Vector3f) -> Vector3f {
-    Vector3f::new(a.x * b.x, a.y * b.y, a.z * b.z)
-}
-pub fn cast_ray(origin: &Vector3f, dir: &Vector3f, scene: &Scene, depth: i32) -> Vector3f {
-    if depth > scene.max_depth {
-        return nalgebra::zero();
-    }
-    let mut hit_color = scene.background_color;
-    if let Some(payload) = trace(origin, dir, scene.get_objs()) {
-        let hit_point = origin + dir * payload.t_near;
-        let (normal, st) = payload.hit_obj.borrow().get_surface_properties(
-            &hit_point,
-            dir,
-            &payload.index,
-            &payload.uv,
-        );
-        let f = |dir: Vector3f, normal| {
-            let ray_origin = if dir.dot(normal) < 0f32 {
-                hit_point - normal * scene.epsilon
-            } else {
-                hit_point + normal * scene.epsilon
-            };
-            cast_ray(&ray_origin, &dir, scene, depth + 1)
-        };
-        hit_color = match payload.hit_obj.borrow().material_type {
-            MaterialType::ReflectionAndRefraction => {
-                let reflection_color = f(reflect(dir, &normal).normalize(), &normal);
-
-                let refraction_color = f(
-                    refract(dir, &normal, &payload.hit_obj.borrow().ior).normalize(),
-                    &normal,
-                );
-                let kr = fresnel(dir, &normal, &payload.hit_obj.borrow().ior);
-                reflection_color * kr + refraction_color * (1f32 - kr)
-            }
-            MaterialType::Reflection => {
-                let kr = fresnel(dir, &normal, &payload.hit_obj.borrow().ior);
-                let color = f(reflect(dir, &normal), &normal);
-                color * kr
-            }
-            MaterialType::DiffuseAndGlossy => {
-                let mut light_amt: Vector3f = nalgebra::zero();
-                let mut specular_color: Vector3f = nalgebra::zero();
-                let shadow_point_origin = if normal.dot(dir) < 0f32 {
-                    hit_point + normal * scene.epsilon
-                } else {
-                    hit_point - normal * scene.epsilon
-                };
-
-                for light in scene.get_lights() {
-                    let l = light.position - hit_point;
-                    let dis2 = l.dot(&l);
-                    let l = l.normalize();
-
-                    light_amt += match trace(&shadow_point_origin, &l, scene.get_objs()) {
-                        Some(shadow_res) if shadow_res.t_near * shadow_res.t_near < dis2 => {
-                            nalgebra::zero()
-                        }
-                        _ => light.intensity * 0f32.max(l.dot(&normal)),
-                    };
-
-                    let reflection_dir = reflect(&-l, &normal);
-                    specular_color += 0f32
-                        .max(-1f32 * reflection_dir.dot(dir))
-                        .powi(payload.hit_obj.borrow().specular_exponent)
-                        * light.intensity
-                }
-
-                // println!("light amt : {}", light_amt);
-                // println!(
-                //     "diffuse color: {}",
-                //     payload.hit_obj.borrow().eval_diffuse_color(&st)
-                // );
-                // println!("specular color: {}", specular_color);
-                // println!(
-                //     "kd: {}, ks: {}",
-                //     payload.hit_obj.borrow().kd,
-                //     payload.hit_obj.borrow().ks
-                // );
-                wise_product(
-                    &light_amt,
-                    &payload.hit_obj.borrow().eval_diffuse_color(&st),
-                ) * payload.hit_obj.borrow().kd
-                    + specular_color * payload.hit_obj.borrow().ks
-            }
-        }
-    }
-    hit_color
-}
-
-pub struct HitPayload {
-    pub t_near: f32,
-    pub index: usize,
-    pub uv: Vector2f,
-    pub hit_obj: Rc<RefCell<dyn Object>>,
-}
-
 pub fn render(scene: &Scene) -> std::io::Result<()> {
     let mut framebuffer = vec![nalgebra::zero(); scene.width * scene.height];
     let scale = deg2rad(&(scene.fov * 0.5)).tan();
@@ -182,7 +165,7 @@ pub fn render(scene: &Scene) -> std::io::Result<()> {
             let x = (2f32 * (i as f32 + 0.5) * inverse_width - 1f32) * scale * aspect_ratio;
             let y = (2f32 * (scene.height as f32 - j as f32 + 0.5) * inverse_height - 1f32) * scale;
             let dir = Vector3f::new(x, y, -1f32).normalize();
-            framebuffer[m] = cast_ray(&eye_pos, &dir, scene, 0);
+            framebuffer[m] = cast_ray(&Ray::new(eye_pos, dir, 0f32), scene, 0);
             m += 1;
         }
         update_progress(j as f32 / scene.height as f32);

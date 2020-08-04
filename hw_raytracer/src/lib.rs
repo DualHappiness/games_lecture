@@ -3,12 +3,24 @@ mod light;
 mod objects;
 mod render;
 mod scene;
+mod ray;
+mod intersection;
+mod material;
+mod bound;
+mod bvh;
 
+pub mod obj_loader;
+
+pub use ray::*;
 pub use global::*;
 pub use light::*;
 pub use objects::*;
 pub use render::*;
 pub use scene::*;
+pub use intersection::*;
+pub use material::*;
+pub use bound::*;
+pub use bvh::*;
 
 #[macro_export]
 macro_rules! vector3 {
