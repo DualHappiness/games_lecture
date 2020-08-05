@@ -1,44 +1,29 @@
 use super::*;
 use std::time::SystemTime;
 
-type Node = Rc<RefCell<BVHBuildNode>>;
+type Node = Rc<RefCell<SAHNode>>;
 #[derive(Default)]
-struct BVHBuildNode {
+struct SAHNode {
     pub bounds: Bound3,
     pub left: Option<Node>,
     pub right: Option<Node>,
+    // ! 改成列表效果更好
     pub obj: Option<Rc<RefCell<dyn Object>>>,
-
-    pub split_axis: i32,
-    pub first_prim_offset: i32,
-    pub n_primtives: i32,
 }
 
-pub struct BVHPrimitiveInfo {}
-
-pub enum SplitMethod {
-    NAIVE,
-    SAH,
-}
-
-pub struct BVHAccel {
-    max_prims_in_node: i32,
-    split_method: SplitMethod,
+pub struct SAHAccel {
     primitives: Vec<Rc<RefCell<dyn Object>>>,
-
     root: Option<Node>,
 }
 
-impl BVHAccel {
+impl SAHAccel {
     pub fn new(
         primitives: &Vec<Rc<RefCell<dyn Object>>>,
-        max_prims_in_node: i32,
-        split_method: SplitMethod,
+        _: i32,
+        _split_method: SplitMethod,
     ) -> Self {
         let mut ret = Self {
             primitives: primitives.iter().map(|obj| Rc::clone(obj)).collect(),
-            max_prims_in_node: 255.min(max_prims_in_node),
-            split_method,
             root: None,
         };
 
@@ -98,7 +83,14 @@ fn get_intersection(node: &Option<Node>, ray: &Ray) -> Intersection {
 
 fn recursive_build(objects: &[Rc<RefCell<dyn Object>>]) -> Node {
     let node: Node = Rc::new(RefCell::new(Default::default()));
+
+    let mut bound = Default::default();
+    for obj in objects {
+        bound = union(&bound, &obj.borrow().get_bounds());
+    }
+
     match objects.len() {
+        0 => (),
         1 => {
             node.borrow_mut().bounds = objects[0].borrow().get_bounds();
             node.borrow_mut().obj = Some(Rc::clone(&objects[0]));
@@ -112,31 +104,53 @@ fn recursive_build(objects: &[Rc<RefCell<dyn Object>>]) -> Node {
             node.borrow_mut().right = Some(right);
         }
         _ => {
-            let mut centroid_bounds = Default::default();
-            for obj in objects {
-                centroid_bounds =
-                    union_point(&centroid_bounds, &obj.borrow().get_bounds().centroid());
+            let mut cost = f32::MAX;
+            let mut best = None;
+
+            let bucket_size = 5;
+            let c_trav = 1f32;
+            let c_insect = 2f32;
+            for (i, axis) in bound.diagonal().iter().enumerate() {
+                // x, y, z axis
+                let bucket_len = axis / bucket_size as f32;
+                // let mut bucket_bound = vec![Bound3::default(); bucket_size];
+                let mut bucket_objs = vec![vec![]; bucket_size];
+                for obj in objects {
+                    let index = ((obj.borrow().get_bounds().centroid()[i] - bound.p_min[i])
+                        / bucket_len) as usize;
+                    // bucket_bound[index] = union(&bucket_bound[index], &obj.borrow().get_bounds());
+                    bucket_objs[index].push(Rc::clone(obj));
+                }
+
+                for k in 0..bucket_size {
+                    let count_a = bucket_objs[..k].iter().map(|v| v.len()).sum::<usize>() as f32;
+                    if count_a == 0f32 {
+                        continue;
+                    }
+                    let count_b = bucket_objs[k..].iter().map(|v| v.len()).sum::<usize>() as f32;
+                    let local_cost = c_trav
+                        + (k + 1) as f32 / bucket_size as f32 * c_insect * count_a
+                        + (1f32 - (k + 1) as f32 / bucket_size as f32) * c_insect * count_b;
+                    if local_cost < cost {
+                        cost = local_cost;
+                        best = Some((
+                            bucket_objs[..k].iter().fold(vec![], |mut ret, v| {
+                                v.iter().for_each(|obj| ret.push(Rc::clone(obj)));
+                                ret
+                            }),
+                            bucket_objs[k..].iter().fold(vec![], |mut ret, v| {
+                                v.iter().for_each(|obj| ret.push(Rc::clone(obj)));
+                                ret
+                            }),
+                        ));
+                    }
+                }
             }
 
-            let index = centroid_bounds.max_extent() as usize;
-            let mut objects: Vec<_> = objects.iter().map(|obj| Rc::clone(&obj)).collect();
-            objects.sort_by(|o1, o2| {
-                if o1.borrow().get_bounds().centroid()[index]
-                    < o2.borrow().get_bounds().centroid()[index]
-                {
-                    std::cmp::Ordering::Less
-                } else {
-                    std::cmp::Ordering::Greater
-                }
-            });
-
-            let mid = objects.len() / 2;
-            let left = recursive_build(&objects[..mid + 1]);
-            let right = recursive_build(&objects[mid..]);
-
-            node.borrow_mut().bounds = union(&left.borrow().bounds, &right.borrow().bounds);
-            node.borrow_mut().left = Some(left);
-            node.borrow_mut().right = Some(right);
+            node.borrow_mut().bounds = bound;
+            let (left_objs, right_objs) = best.unwrap();
+            node.borrow_mut().left = Some(recursive_build(&left_objs));
+            node.borrow_mut().right = Some(recursive_build(&right_objs));
         }
     }
 

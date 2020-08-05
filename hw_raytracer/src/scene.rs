@@ -11,7 +11,7 @@ pub struct Scene {
     pub epsilon: f32,
     objects: Vec<Rc<RefCell<dyn Object>>>,
     lights: Vec<Light>,
-    bvh: Option<BVHAccel>,
+    bvh: Option<SAHAccel>,
 }
 
 impl Default for Scene {
@@ -57,7 +57,7 @@ impl Scene {
 
     pub fn build_bvh(&mut self) {
         println!(" - Generating BVH...\n\n");
-        self.bvh = Some(BVHAccel::new(&self.objects, 1, SplitMethod::NAIVE));
+        self.bvh = Some(SAHAccel::new(&self.objects, 1, SplitMethod::NAIVE));
     }
 
     pub fn intersect(&self, ray: &Ray) -> Intersection {

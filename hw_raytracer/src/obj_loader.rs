@@ -162,9 +162,10 @@ impl Loader {
         line: &str,
     ) -> Vec<Vertex> {
         let mut ret = vec![];
-        let no_normal = algorithm::split(&algorithm::tail(line), " ")
+        let mut no_normal = false;
+        algorithm::split(&algorithm::tail(line), " ")
             .iter()
-            .map(|face| {
+            .for_each(|face| {
                 let svert = algorithm::split(&face, "/");
                 assert!(!svert.is_empty());
                 let mut vertex: Vertex = Default::default();
@@ -178,9 +179,8 @@ impl Loader {
                     vertex.normal = algorithm::get_element(normals, svert[2]);
                 }
                 ret.push(vertex);
-                svert.len() <= 2
-            })
-            .any(|no_normal| no_normal);
+                no_normal = svert.len() <= 2
+            });
 
         // take care of missing normals
         // these may not be truly acurate but it is the

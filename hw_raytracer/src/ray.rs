@@ -28,6 +28,11 @@ impl Ray {
             origin,
             direction,
             t,
+            direction_inv: Vector3f::new(
+                1f32 / direction.x,
+                1f32 / direction.y,
+                1f32 / direction.z,
+            ),
             ..Default::default()
         }
     }

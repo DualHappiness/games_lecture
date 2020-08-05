@@ -56,8 +56,8 @@ pub fn update_progress(progress: f32) {
             Ordering::Equal => print!(">"),
             Ordering::Greater => print!(" "),
         }
-        print!("] {} %\r", (progress * 100f32) as i32);
     }
+    print!("] {} %\r", (progress * 100f32) as i32);
 }
 
 pub fn v3min(a: &Vector3f, b: &Vector3f) -> Vector3f {

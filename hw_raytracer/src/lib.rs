@@ -8,6 +8,7 @@ mod intersection;
 mod material;
 mod bound;
 mod bvh;
+mod sah;
 
 pub mod obj_loader;
 
@@ -21,6 +22,7 @@ pub use intersection::*;
 pub use material::*;
 pub use bound::*;
 pub use bvh::*;
+pub use sah::*;
 
 #[macro_export]
 macro_rules! vector3 {

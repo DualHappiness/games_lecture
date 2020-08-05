@@ -6,7 +6,7 @@ fn main() {
     let mut scene = Scene::new(1280, 960);
 
     let bunny: Rc<RefCell<dyn Object>> = Rc::new(RefCell::new(triangle::MeshTriangle::new(
-        "../models/bunny/bunny.obj",
+        "models/bunny/bunny.obj",
     )));
 
     scene.add_obj(&bunny);

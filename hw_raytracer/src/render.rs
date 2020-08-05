@@ -158,18 +158,19 @@ pub fn render(scene: &Scene) -> std::io::Result<()> {
     let (inverse_width, inverse_height) = (1f32 / scene.width as f32, 1f32 / scene.height as f32);
 
     // 默认屏幕距离为 1
-    let eye_pos = nalgebra::zero();
+    let eye_pos = Vector3f::new(-1f32, 5f32, 10f32);
     let mut m = 0;
     for j in 0..scene.height {
         for i in 0..scene.width {
             let x = (2f32 * (i as f32 + 0.5) * inverse_width - 1f32) * scale * aspect_ratio;
-            let y = (2f32 * (scene.height as f32 - j as f32 + 0.5) * inverse_height - 1f32) * scale;
+            let y = (1f32 - 2f32 * (j as f32 + 0.5) * inverse_height) * scale;
             let dir = Vector3f::new(x, y, -1f32).normalize();
             framebuffer[m] = cast_ray(&Ray::new(eye_pos, dir, 0f32), scene, 0);
             m += 1;
         }
         update_progress(j as f32 / scene.height as f32);
     }
+    update_progress(1f32);
 
     let mut fp = std::fs::File::create("binary.ppm")?;
     fp.write(&format!("P6\n{} {}\n255\n", scene.width, scene.height).as_bytes())?;

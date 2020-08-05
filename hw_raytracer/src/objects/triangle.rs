@@ -115,11 +115,7 @@ impl Object for Triangle {
 
         let qvec = tvec.cross(&self.e1);
         let v = ray.direction.dot(&qvec) * det_inv;
-        if v < 0f32 || v > 1f32 {
-            return intersection;
-        }
-
-        if 1f32 - u - v < 0f32 {
+        if v < 0f32 || v + u > 1f32 {
             return intersection;
         }
 
@@ -169,7 +165,7 @@ pub struct MeshTriangle {
 
     pub triangles: Vec<Rc<RefCell<Triangle>>>,
 
-    pub bvh: Option<BVHAccel>,
+    pub bvh: Option<SAHAccel>,
     pub m: Material,
 
     pub bounding_box: Bound3,
@@ -183,16 +179,16 @@ impl MeshTriangle {
         assert_eq!(loader.loaded_meshes.len(), 1);
 
         let mesh = &loader.loaded_meshes[0];
-        let mut min_vert = Vector3f::from_element(f32::MIN);
-        let mut max_vert = Vector3f::from_element(f32::MAX);
+        let mut min_vert = Vector3f::from_element(f32::MAX);
+        let mut max_vert = Vector3f::from_element(f32::MIN);
 
         let mut i = 0;
         while i < mesh.vertices.len() {
             let mut face_vertices: [Vector3f; 3] = [nalgebra::zero(); 3];
             for j in 0..3 {
-                face_vertices[j] = mesh.vertices[i + j].position;
-                min_vert = v3min(&min_vert, &face_vertices[i]);
-                max_vert = v3max(&min_vert, &face_vertices[i]);
+                face_vertices[j] = mesh.vertices[i + j].position * 60f32;
+                min_vert = v3min(&min_vert, &face_vertices[j]);
+                max_vert = v3max(&max_vert, &face_vertices[j]);
             }
 
             let mut mat = Material::new(
@@ -212,14 +208,15 @@ impl MeshTriangle {
             i += 3;
         }
         ret.bounding_box = Bound3::new(min_vert, max_vert);
-
+        #[cfg(feature = "show_print")]
+        println!("obj bounding box is {:?}, {:?}", min_vert, max_vert);
         let ptrs = ret
             .triangles
             .iter()
             .map(|t| Rc::clone(&t))
             .map(|t| t as Rc<RefCell<dyn Object>>)
             .collect();
-        ret.bvh = Some(BVHAccel::new(&ptrs, 1, SplitMethod::NAIVE));
+        ret.bvh = Some(SAHAccel::new(&ptrs, 1, SplitMethod::NAIVE));
         ret
     }
 }

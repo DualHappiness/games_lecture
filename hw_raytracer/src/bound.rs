@@ -1,5 +1,6 @@
 use super::*;
 
+#[derive(Debug)]
 pub struct Bound3 {
     pub p_min: Vector3f,
     pub p_max: Vector3f,
@@ -8,8 +9,8 @@ pub struct Bound3 {
 impl Default for Bound3 {
     fn default() -> Self {
         Self {
-            p_min: Vector3f::from_element(f32::MIN),
-            p_max: Vector3f::from_element(f32::MAX),
+            p_min: Vector3f::from_element(f32::MAX),
+            p_max: Vector3f::from_element(f32::MIN),
         }
     }
 }
@@ -107,9 +108,11 @@ impl Bound3 {
             let t1 = (self.p_min[i] - ray.origin[i]) * inv_dir[i];
             let t2 = (self.p_max[i] - ray.origin[i]) * inv_dir[i];
 
-            let (t1, t2) = if dir_is_neg[i] { (t2, t1) } else { (t1, t2) };
+            let (t1, t2) = if !dir_is_neg[i] { (t2, t1) } else { (t1, t2) };
             (t_min.max(t1), t_max.min(t2))
         });
+        #[cfg(feature = "show_print")]
+        println!("bound box is {:?}", self);
         t_exit > 0f32 && t_enter < t_exit
     }
 }
