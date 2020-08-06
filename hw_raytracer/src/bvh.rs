@@ -9,9 +9,7 @@ struct BVHBuildNode {
     pub right: Option<Node>,
     pub obj: Option<Rc<RefCell<dyn Object>>>,
 
-    pub split_axis: i32,
-    pub first_prim_offset: i32,
-    pub n_primtives: i32,
+    pub area: f32,
 }
 
 pub struct BVHPrimitiveInfo {}
@@ -62,6 +60,28 @@ impl BVHAccel {
 
     pub fn intersect(&self, ray: &Ray) -> Intersection {
         get_intersection(&self.root, ray)
+    }
+
+    pub fn sample(&self, pos: &mut Intersection, pdf: &mut f32) {
+        let area = self.root.as_ref().unwrap().borrow().area;
+        let p = get_random_float().sqrt() * area;
+        get_sample(&self.root, p, pos, pdf);
+        *pdf /= area;
+    }
+}
+
+fn get_sample(node: &Option<Node>, p: f32, pos: &mut Intersection, pdf: &mut f32) {
+    if let Some(node) = node {
+        if let Some(obj) = &node.borrow().obj {
+            obj.borrow().sample(pos, pdf);
+            *pdf *= node.borrow().area;
+        } else {
+            if p < node.borrow().left.as_ref().unwrap().borrow().area {
+                get_sample(&node.borrow().left, p, pos, pdf);
+            } else {
+                get_sample(&node.borrow().right, p, pos, pdf);
+            }
+        }
     }
 }
 

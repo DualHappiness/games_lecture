@@ -1,7 +1,5 @@
 use super::*;
 
-
-
 pub struct Scene {
     pub width: usize,
     pub height: usize,
@@ -11,7 +9,7 @@ pub struct Scene {
     pub epsilon: f32,
     objects: Vec<Rc<RefCell<dyn Object>>>,
     lights: Vec<Light>,
-    bvh: Option<SAHAccel>,
+    bvh: Option<Accel>,
 }
 
 impl Default for Scene {
@@ -57,7 +55,7 @@ impl Scene {
 
     pub fn build_bvh(&mut self) {
         println!(" - Generating BVH...\n\n");
-        self.bvh = Some(SAHAccel::new(&self.objects, 1, SplitMethod::NAIVE));
+        self.bvh = Some(Accel::new(&self.objects, 1, SplitMethod::NAIVE));
     }
 
     pub fn intersect(&self, ray: &Ray) -> Intersection {
@@ -66,5 +64,22 @@ impl Scene {
             Some(bvh) => bvh.intersect(ray),
         }
     }
-}
 
+    pub fn sample_light(&self, pos: &mut Intersection, pdf: &mut f32) {
+        let emit_area_sum: f32 = self
+            .objects
+            .iter()
+            .filter(|obj| obj.borrow().has_emit())
+            .map(|obj| obj.borrow().get_area())
+            .sum();
+        let mut p = get_random_float() * emit_area_sum;
+        self.objects
+            .iter()
+            .filter(|obj| obj.borrow().has_emit())
+            .take_while(|obj| {
+                p -= obj.borrow().get_area();
+                p > 0f32
+            })
+            .for_each(|obj| obj.borrow().sample(pos, pdf));
+    }
+}

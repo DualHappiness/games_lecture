@@ -6,6 +6,7 @@ pub struct Sphere {
     pub center: Vector3f,
     pub radius: f32,
     pub radius2: f32,
+    pub area: f32,
     pub material: Rc<Material>,
 }
 
@@ -24,6 +25,7 @@ impl Sphere {
             center,
             radius,
             radius2: radius * radius,
+            area: 4f32 * PI * radius * radius,
             ..Default::default()
         }
     }
@@ -71,7 +73,7 @@ impl Object for Sphere {
     }
 
     fn eval_diffuse_color(&self, _: &Vector2f) -> Vector3f {
-        self.material.color
+        nalgebra::zero()
     }
 
     fn get_intersection(&self, ray: &ray::Ray) -> intersection::Intersection {
@@ -92,5 +94,22 @@ impl Object for Sphere {
     fn get_bounds(&self) -> bound::Bound3 {
         let offset = Vector3f::from_element(self.radius);
         Bound3::new(self.center - offset, self.center + offset)
+    }
+    fn get_area(&self) -> f32 {
+        self.area
+    }
+    fn sample(&self, pos: &mut intersection::Intersection, pdf: &mut f32) {
+        let theta = 2f32 * PI * get_random_float();
+        let phi = PI * get_random_float();
+
+        let dir = vector3! {phi.cos(), phi.sin() * theta.cos(), phi.sin() * theta.sin()};
+        pos.coords = self.center + self.radius * dir;
+        pos.normal = dir;
+        pos.emit = self.material.emission;
+
+        *pdf = 1f32 / self.area;
+    }
+    fn has_emit(&self) -> bool {
+        self.material.has_emission()
     }
 }

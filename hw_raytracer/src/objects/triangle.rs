@@ -41,6 +41,7 @@ pub struct Triangle {
     pub t2: Vector3f,
 
     pub normal: Vector3f,
+    pub area: f32,
     pub material: Option<Rc<Material>>,
 }
 
@@ -82,6 +83,7 @@ impl Triangle {
             e1,
             e2,
             normal: e1.cross(&e2).normalize(),
+            area: e1.cross(&e2).norm() * 0.5,
             ..Default::default()
         }
     }
@@ -152,6 +154,23 @@ impl Object for Triangle {
     fn get_bounds(&self) -> bound::Bound3 {
         union_point(&Bound3::new(self.v0, self.v1), &self.v2)
     }
+    fn get_area(&self) -> f32 {
+        self.area
+    }
+    fn sample(&self, pos: &mut intersection::Intersection, pdf: &mut f32) {
+        let x = get_random_float().sqrt();
+        let y = get_random_float().sqrt();
+
+        pos.coords = self.v0 * (1f32 - x) + self.v1 * (x * (1f32 - y)) + self.v2 * (x * y);
+        pos.normal = self.normal;
+        *pdf = 1f32 / self.area;
+    }
+    fn has_emit(&self) -> bool {
+        match &self.material {
+            None => false,
+            Some(m) => m.has_emission(),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -165,14 +184,15 @@ pub struct MeshTriangle {
 
     pub triangles: Vec<Rc<RefCell<Triangle>>>,
 
-    pub bvh: Option<SAHAccel>,
+    pub bvh: Option<Accel>,
+    pub area: f32,
     pub m: Material,
 
     pub bounding_box: Bound3,
 }
 
 impl MeshTriangle {
-    pub fn new(filename: &str) -> Self {
+    pub fn new(filename: &str, m: Material) -> Self {
         let mut ret = Self::default();
         let mut loader = obj_loader::Loader::default();
         loader.load_file(filename).expect("load file error");
@@ -190,19 +210,9 @@ impl MeshTriangle {
                 min_vert = v3min(&min_vert, &face_vertices[j]);
                 max_vert = v3max(&max_vert, &face_vertices[j]);
             }
-
-            let mut mat = Material::new(
-                MaterialType::DiffuseAndGlossy,
-                Vector3f::from_element(0.5),
-                nalgebra::zero(),
-            );
-            mat.kd = 0.6;
-            mat.ks = 0f32;
-            mat.specular_exponent = 0;
-
             ret.triangles.push(Rc::new(RefCell::new(Triangle::new(
                 face_vertices,
-                Some(Rc::from(mat)),
+                Some(Rc::from(m)),
             ))));
 
             i += 3;
@@ -210,13 +220,15 @@ impl MeshTriangle {
         ret.bounding_box = Bound3::new(min_vert, max_vert);
         #[cfg(feature = "show_print")]
         println!("obj bounding box is {:?}, {:?}", min_vert, max_vert);
+        ret.area = ret.triangles.iter().map(|t| t.borrow().area).sum();
+
         let ptrs = ret
             .triangles
             .iter()
             .map(|t| Rc::clone(&t))
             .map(|t| t as Rc<RefCell<dyn Object>>)
             .collect();
-        ret.bvh = Some(SAHAccel::new(&ptrs, 1, SplitMethod::NAIVE));
+        ret.bvh = Some(Accel::new(&ptrs, 1, SplitMethod::NAIVE));
         ret
     }
 }
@@ -286,5 +298,15 @@ impl Object for MeshTriangle {
     }
     fn get_bounds(&self) -> bound::Bound3 {
         self.bounding_box
+    }
+    fn get_area(&self) -> f32 {
+        self.area
+    }
+    fn sample(&self, pos: &mut intersection::Intersection, pdf: &mut f32) {
+        self.bvh.as_ref().unwrap().sample(pos, pdf);
+        pos.emit = self.m.emission;
+    }
+    fn has_emit(&self) -> bool {
+        self.m.has_emission()
     }
 }

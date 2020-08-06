@@ -7,6 +7,7 @@ pub use std::cell::RefCell;
 pub use std::rc::Rc;
 pub type Vector2f = Vector2<f32>;
 pub type Vector3f = Vector3<f32>;
+pub type Accel = BVHAccel;
 
 pub const PI: f32 = 3.14159265358979323846;
 pub const INFINITY: f32 = f32::MAX;
@@ -36,11 +37,7 @@ pub fn solve_quadratic(a: f32, b: f32, c: f32) -> Option<(f32, f32)> {
     }
 }
 
-impl Default for MaterialType {
-    fn default() -> Self {
-        MaterialType::DiffuseAndGlossy
-    }
-}
+
 
 pub fn get_random_float() -> f32 {
     rand::random::<f32>()

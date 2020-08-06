@@ -40,6 +40,12 @@ pub trait Object: Deref<Target = Obj> + DerefMut<Target = Obj> {
     fn eval_diffuse_color(&self, _: &Vector2f) -> Vector3f;
 
     fn get_bounds(&self) -> Bound3;
+
+    fn get_area(&self) -> f32;
+
+    fn sample(&self, pos: &mut Intersection, pdf: &mut f32);
+
+    fn has_emit(&self) -> bool;
 }
 
 pub mod sphere;
