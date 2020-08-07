@@ -1,13 +1,13 @@
 use super::*;
 use std::time::SystemTime;
 
-type Node = Rc<RefCell<BVHBuildNode>>;
+type Node = Rc<BVHBuildNode>;
 #[derive(Default)]
 struct BVHBuildNode {
     pub bounds: Bound3,
     pub left: Option<Node>,
     pub right: Option<Node>,
-    pub obj: Option<Rc<RefCell<dyn Object>>>,
+    pub obj: Option<Rc<dyn Object>>,
 
     pub area: f32,
 }
@@ -20,23 +20,19 @@ pub enum SplitMethod {
 }
 
 pub struct BVHAccel {
-    max_prims_in_node: i32,
-    split_method: SplitMethod,
-    primitives: Vec<Rc<RefCell<dyn Object>>>,
+    primitives: Vec<Rc<dyn Object>>,
 
     root: Option<Node>,
 }
 
 impl BVHAccel {
     pub fn new(
-        primitives: &Vec<Rc<RefCell<dyn Object>>>,
-        max_prims_in_node: i32,
-        split_method: SplitMethod,
+        primitives: &Vec<Rc<dyn Object>>,
+        _max_prims_in_node: i32,
+        _split_method: SplitMethod,
     ) -> Self {
         let mut ret = Self {
             primitives: primitives.iter().map(|obj| Rc::clone(obj)).collect(),
-            max_prims_in_node: 255.min(max_prims_in_node),
-            split_method,
             root: None,
         };
 
@@ -63,7 +59,7 @@ impl BVHAccel {
     }
 
     pub fn sample(&self, pos: &mut Intersection, pdf: &mut f32) {
-        let area = self.root.as_ref().unwrap().borrow().area;
+        let area = self.root.as_ref().unwrap().area;
         let p = get_random_float().sqrt() * area;
         get_sample(&self.root, p, pos, pdf);
         *pdf /= area;
@@ -72,14 +68,14 @@ impl BVHAccel {
 
 fn get_sample(node: &Option<Node>, p: f32, pos: &mut Intersection, pdf: &mut f32) {
     if let Some(node) = node {
-        if let Some(obj) = &node.borrow().obj {
-            obj.borrow().sample(pos, pdf);
-            *pdf *= node.borrow().area;
+        if let Some(obj) = &node.obj {
+            obj.sample(pos, pdf);
+            *pdf *= node.area;
         } else {
-            if p < node.borrow().left.as_ref().unwrap().borrow().area {
-                get_sample(&node.borrow().left, p, pos, pdf);
+            if p < node.left.as_ref().unwrap().area {
+                get_sample(&node.left, p, pos, pdf);
             } else {
-                get_sample(&node.borrow().right, p, pos, pdf);
+                get_sample(&node.right, p, pos, pdf);
             }
         }
     }
@@ -87,17 +83,17 @@ fn get_sample(node: &Option<Node>, p: f32, pos: &mut Intersection, pdf: &mut f32
 
 fn get_intersection(node: &Option<Node>, ray: &Ray) -> Intersection {
     if let Some(node) = node {
-        if node.borrow().bounds.intersect_ray(
+        if node.bounds.intersect_ray(
             ray,
             &ray.direction_inv,
             &ray.direction.iter().map(|&v| v > 0f32).collect::<Vec<_>>(),
         ) {
-            if let Some(obj) = &node.borrow().obj {
-                return obj.borrow().get_intersection(ray);
+            if let Some(obj) = &node.obj {
+                return obj.get_intersection(ray);
             }
 
-            let left = get_intersection(&node.borrow().left, ray);
-            let right = get_intersection(&node.borrow().right, ray);
+            let left = get_intersection(&node.left, ray);
+            let right = get_intersection(&node.right, ray);
             return match (left.happened, right.happened) {
                 (true, false) => left,
                 (false, true) => right,
@@ -116,34 +112,33 @@ fn get_intersection(node: &Option<Node>, ray: &Ray) -> Intersection {
     return Intersection::default();
 }
 
-fn recursive_build(objects: &[Rc<RefCell<dyn Object>>]) -> Node {
-    let node: Node = Rc::new(RefCell::new(Default::default()));
+fn recursive_build(objects: &[Rc<dyn Object>]) -> Node {
+    let mut node = BVHBuildNode::default();
     match objects.len() {
         1 => {
-            node.borrow_mut().bounds = objects[0].borrow().get_bounds();
-            node.borrow_mut().obj = Some(Rc::clone(&objects[0]));
+            node.bounds = objects[0].get_bounds();
+            node.obj = Some(Rc::clone(&objects[0]));
+            node.area = objects[0].get_area();
         }
         2 => {
             let left = recursive_build(&objects[..1]);
             let right = recursive_build(&objects[1..]);
 
-            node.borrow_mut().bounds = union(&left.borrow().bounds, &right.borrow().bounds);
-            node.borrow_mut().left = Some(left);
-            node.borrow_mut().right = Some(right);
+            node.area = left.area + right.area;
+            node.bounds = union(&left.bounds, &right.bounds);
+            node.left = Some(left);
+            node.right = Some(right);
         }
         _ => {
             let mut centroid_bounds = Default::default();
             for obj in objects {
-                centroid_bounds =
-                    union_point(&centroid_bounds, &obj.borrow().get_bounds().centroid());
+                centroid_bounds = union_point(&centroid_bounds, &obj.get_bounds().centroid());
             }
 
             let index = centroid_bounds.max_extent() as usize;
             let mut objects: Vec<_> = objects.iter().map(|obj| Rc::clone(&obj)).collect();
             objects.sort_by(|o1, o2| {
-                if o1.borrow().get_bounds().centroid()[index]
-                    < o2.borrow().get_bounds().centroid()[index]
-                {
+                if o1.get_bounds().centroid()[index] < o2.get_bounds().centroid()[index] {
                     std::cmp::Ordering::Less
                 } else {
                     std::cmp::Ordering::Greater
@@ -154,11 +149,13 @@ fn recursive_build(objects: &[Rc<RefCell<dyn Object>>]) -> Node {
             let left = recursive_build(&objects[..mid + 1]);
             let right = recursive_build(&objects[mid..]);
 
-            node.borrow_mut().bounds = union(&left.borrow().bounds, &right.borrow().bounds);
-            node.borrow_mut().left = Some(left);
-            node.borrow_mut().right = Some(right);
+            node.bounds = union(&left.bounds, &right.bounds);
+            node.area = left.area + right.area;
+            node.left = Some(left);
+            node.right = Some(right);
+
         }
     }
 
-    node
+    Rc::from(node)
 }

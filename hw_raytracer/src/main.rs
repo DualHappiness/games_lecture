@@ -1,8 +1,7 @@
-#[macro_use]
 use hw_raytracer::*;
 use std::time::SystemTime;
 
-type RObj = Rc<RefCell<dyn Object>>;
+type RObj = Rc<dyn Object>;
 fn main() {
     let mut scene = Scene::new(784, 784);
 
@@ -24,7 +23,7 @@ fn main() {
 
     let path = "models/cornellbox/".to_owned();
     let new_obj = |path: String, material| {
-        Rc::new(RefCell::new(triangle::MeshTriangle::new(&path, material)))
+        Rc::new(triangle::MeshTriangle::new(&path, material))
     };
     let floor: RObj = new_obj(path.clone() + "floor.obj", white);
     let shortbox: RObj = new_obj(path.clone() + "shortbox.obj", white);

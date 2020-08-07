@@ -7,7 +7,8 @@ pub struct Scene {
     pub background_color: Vector3f,
     pub max_depth: i32,
     pub epsilon: f32,
-    objects: Vec<Rc<RefCell<dyn Object>>>,
+    pub russian_roulette: f32,
+    objects: Vec<Rc<dyn Object>>,
     lights: Vec<Light>,
     bvh: Option<Accel>,
 }
@@ -17,10 +18,11 @@ impl Default for Scene {
         Self {
             width: 1280,
             height: 960,
-            fov: 90f32,
+            fov: 40f32,
             background_color: Vector3f::new(0.23529, 0.67451, 0.843137),
-            max_depth: 5,
+            max_depth: 1,
             epsilon: 0.00001,
+            russian_roulette: 0.8,
             objects: vec![],
             lights: vec![],
             bvh: None,
@@ -37,7 +39,7 @@ impl Scene {
         }
     }
 
-    pub fn add_obj(&mut self, obj: &Rc<RefCell<dyn Object>>) {
+    pub fn add_obj(&mut self, obj: &Rc<dyn Object>) {
         self.objects.push(Rc::clone(obj));
     }
 
@@ -45,7 +47,7 @@ impl Scene {
         self.lights.push(light);
     }
 
-    pub fn get_objs(&self) -> &Vec<Rc<RefCell<dyn Object>>> {
+    pub fn get_objs(&self) -> &Vec<Rc<dyn Object>> {
         &self.objects
     }
 
@@ -69,17 +71,18 @@ impl Scene {
         let emit_area_sum: f32 = self
             .objects
             .iter()
-            .filter(|obj| obj.borrow().has_emit())
-            .map(|obj| obj.borrow().get_area())
+            .filter(|obj| obj.has_emit())
+            .map(|obj| obj.get_area())
             .sum();
         let mut p = get_random_float() * emit_area_sum;
         self.objects
             .iter()
-            .filter(|obj| obj.borrow().has_emit())
-            .take_while(|obj| {
-                p -= obj.borrow().get_area();
-                p > 0f32
+            .filter(|obj| obj.has_emit())
+            .find(|obj| {
+                p -= obj.get_area();
+                p < 0f32
             })
-            .for_each(|obj| obj.borrow().sample(pos, pdf));
+            .unwrap()
+            .sample(pos, pdf);
     }
 }

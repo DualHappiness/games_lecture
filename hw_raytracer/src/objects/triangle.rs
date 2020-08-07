@@ -90,7 +90,7 @@ impl Triangle {
 }
 
 impl Object for Triangle {
-    fn intersect(&self, ray: &ray::Ray) -> Option<(f32, usize)> {
+    fn intersect(&self, _ray: &ray::Ray) -> Option<(f32, usize)> {
         None
         // ! ???
     }
@@ -182,7 +182,7 @@ pub struct MeshTriangle {
     pub vertex_index: Vec<usize>,
     pub st_coordinates: Vec<Vector2f>,
 
-    pub triangles: Vec<Rc<RefCell<Triangle>>>,
+    pub triangles: Vec<Rc<Triangle>>,
 
     pub bvh: Option<Accel>,
     pub area: f32,
@@ -194,6 +194,7 @@ pub struct MeshTriangle {
 impl MeshTriangle {
     pub fn new(filename: &str, m: Material) -> Self {
         let mut ret = Self::default();
+        ret.m = m;
         let mut loader = obj_loader::Loader::default();
         loader.load_file(filename).expect("load file error");
         assert_eq!(loader.loaded_meshes.len(), 1);
@@ -206,27 +207,25 @@ impl MeshTriangle {
         while i < mesh.vertices.len() {
             let mut face_vertices: [Vector3f; 3] = [nalgebra::zero(); 3];
             for j in 0..3 {
-                face_vertices[j] = mesh.vertices[i + j].position * 60f32;
+                face_vertices[j] = mesh.vertices[i + j].position;
                 min_vert = v3min(&min_vert, &face_vertices[j]);
                 max_vert = v3max(&max_vert, &face_vertices[j]);
             }
-            ret.triangles.push(Rc::new(RefCell::new(Triangle::new(
-                face_vertices,
-                Some(Rc::from(m)),
-            ))));
+            ret.triangles
+                .push(Rc::new(Triangle::new(face_vertices, Some(Rc::from(m)))));
 
             i += 3;
         }
         ret.bounding_box = Bound3::new(min_vert, max_vert);
         #[cfg(feature = "show_print")]
         println!("obj bounding box is {:?}, {:?}", min_vert, max_vert);
-        ret.area = ret.triangles.iter().map(|t| t.borrow().area).sum();
+        ret.area = ret.triangles.iter().map(|t| t.area).sum();
 
         let ptrs = ret
             .triangles
             .iter()
             .map(|t| Rc::clone(&t))
-            .map(|t| t as Rc<RefCell<dyn Object>>)
+            .map(|t| t as Rc<dyn Object>)
             .collect();
         ret.bvh = Some(Accel::new(&ptrs, 1, SplitMethod::NAIVE));
         ret

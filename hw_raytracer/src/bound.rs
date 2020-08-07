@@ -113,6 +113,6 @@ impl Bound3 {
         });
         #[cfg(feature = "show_print")]
         println!("bound box is {:?}", self);
-        t_exit > 0f32 && t_enter < t_exit
+        t_exit > 0f32 && t_enter <= t_exit
     }
 }

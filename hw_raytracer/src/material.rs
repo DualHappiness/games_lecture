@@ -51,11 +51,11 @@ impl Material {
         self.emission.norm() > EPSILON
     }
 
-    pub fn get_color_at(&self, u: f32, v: f32) -> Vector3f {
+    pub fn get_color_at(&self, _u: f32, _v: f32) -> Vector3f {
         nalgebra::zero()
     }
 
-    pub fn sample(&self, wi: &Vector3f, n: &Vector3f) -> Vector3f {
+    pub fn sample(&self, _wi: &Vector3f, n: &Vector3f) -> Vector3f {
         // uniform sample on the hemisphere
         assert_eq!(self.r#type, MaterialType::DiffuseAndGlossy);
         let x1 = get_random_float();
@@ -78,7 +78,7 @@ impl Material {
         }
     }
 
-    pub fn eval(&self, wi: &Vector3f, wo: &Vector3f, n: &Vector3f) -> Vector3f {
+    pub fn eval(&self, _wi: &Vector3f, wo: &Vector3f, n: &Vector3f) -> Vector3f {
         assert_eq!(self.r#type, MaterialType::DiffuseAndGlossy);
 
         if n.dot(wo) > 0f32 {

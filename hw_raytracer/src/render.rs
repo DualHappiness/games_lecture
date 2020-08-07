@@ -5,61 +5,59 @@ pub struct HitPayload {
     pub t_near: f32,
     pub index: usize,
     // pub uv: Vector2f,
-    pub hit_obj: Rc<RefCell<dyn Object>>,
+    pub hit_obj: Rc<dyn Object>,
 }
 
 fn deg2rad(deg: &f32) -> f32 {
     deg * PI / 180f32
 }
 
-fn shade(
-    p: &Vector3f,
-    wo: &Vector3f,
-    normal: &Vector3f,
-    m: Rc<Material>,
-    scene: &Scene,
-) -> Vector3f {
+fn shade(p: &Vector3f, wo: &Vector3f, n: &Vector3f, m: Rc<Material>, scene: &Scene) -> Vector3f {
     let mut inter = Intersection::default();
-    let mut pdf = 0f32;
-    scene.sample_light(&mut inter, &mut pdf);
+    let mut pdf_light = 0f32;
+    scene.sample_light(&mut inter, &mut pdf_light);
     let x = inter.coords;
 
-    let ws = (p - x).normalize();
+    let ws = x - p;
+    let nn = inter.normal;
+    let emit = inter.emit;
     let new_ray = Ray::new(p.clone(), ws, 0f32);
-    let light_inter = scene.intersect(&new_ray);
-    let l_dir = if light_inter.coords != x {
-        nalgebra::zero()
-    } else {
-        wise_product(&inter.emit, &m.eval(wo, &ws, normal)) * ws.dot(normal) * ws.dot(&inter.normal)
-            / (p - x).norm_squared()
-            / pdf
-    };
-    let P_RR = 0.55;
-    let l_indir = if get_random_float() < P_RR {
-        nalgebra::zero()
-    } else {
-        let wi = m.sample(wo, normal);
-        let new_ray = Ray::new(p.clone(), wi, 0f32);
-        let indir_inter = scene.intersect(&new_ray);
-        if !indir_inter.happened || indir_inter.obj.unwrap().has_emit() {
-            nalgebra::zero()
-        } else {
-            wise_product(
-                &shade(
-                    &indir_inter.coords,
-                    &new_ray.direction,
-                    &indir_inter.normal,
-                    Rc::clone(&indir_inter.m.unwrap()),
-                    scene,
-                ),
-                &m.eval(wo, &wi, normal),
-            ) * wi.dot(normal)
-                / m.pdf(wo, &wi, normal)
-                / P_RR
-        }
-    };
+    let inter = scene.intersect(&new_ray);
 
-    l_dir + l_indir
+    let l_dir = if3!(
+        inter.happened && inter.distance < 1f32 - EPSILON,
+        nalgebra::zero(),
+        wise_product(&emit, &m.eval(wo, &ws, n)) * ws.dot(n) * ws.dot(&nn)
+            / ws.norm_squared()
+            / pdf_light
+    );
+    // let l_indir = if3!(
+    //     get_random_float() < scene.russian_roulette,
+    //     nalgebra::zero(),
+    //     {
+    //         let wi = m.sample(wo, n).normalize();
+    //         let new_ray = Ray::new(p.clone(), wi, 0f32);
+    //         let inter = scene.intersect(&new_ray);
+    //         if !inter.happened || inter.obj.unwrap().has_emit() {
+    //             nalgebra::zero()
+    //         } else {
+    //             wise_product(
+    //                 &shade(
+    //                     &inter.coords,
+    //                     &new_ray.direction,
+    //                     &inter.normal,
+    //                     Rc::clone(&inter.m.unwrap()),
+    //                     scene,
+    //                 ),
+    //                 &m.eval(wo, &wi, n),
+    //             ) * wi.dot(n)
+    //                 / m.pdf(wo, &wi, n)
+    //                 / scene.russian_roulette
+    //         }
+    //     }
+    // );
+
+    l_dir
 }
 
 pub fn cast_ray(ray: &Ray, scene: &Scene, _depth: i32) -> Vector3f {
@@ -76,11 +74,11 @@ pub fn cast_ray(ray: &Ray, scene: &Scene, _depth: i32) -> Vector3f {
     )
 }
 
-pub fn trace(ray: &Ray, objects: &Vec<Rc<RefCell<dyn Object>>>) -> Option<HitPayload> {
+pub fn trace(ray: &Ray, objects: &Vec<Rc<dyn Object>>) -> Option<HitPayload> {
     let mut t_near = INFINITY;
     let mut ret = None;
     for obj in objects {
-        if let Some((t, index)) = obj.borrow().intersect(ray) {
+        if let Some((t, index)) = obj.intersect(ray) {
             if t < t_near {
                 t_near = t;
                 ret = Some(HitPayload {
@@ -98,11 +96,11 @@ fn wise_product(a: &Vector3f, b: &Vector3f) -> Vector3f {
     Vector3f::new(a.x * b.x, a.y * b.y, a.z * b.z)
 }
 
-fn reflect(input: &Vector3f, normal: &Vector3f) -> Vector3f {
+fn _reflect(input: &Vector3f, normal: &Vector3f) -> Vector3f {
     input - 2f32 * input.dot(normal) * normal
 }
 
-fn refract(input: &Vector3f, normal: &Vector3f, ior: &f32) -> Vector3f {
+fn _refract(input: &Vector3f, normal: &Vector3f, ior: &f32) -> Vector3f {
     let mut cosi = clamp(-1f32, 1f32, input.dot(normal));
     let (mut etai, mut etat) = (1f32, *ior);
 

@@ -19,7 +19,7 @@ pub fn clamp(low: f32, hi: f32, v: f32) -> f32 {
 
 pub fn solve_quadratic(a: f32, b: f32, c: f32) -> Option<(f32, f32)> {
     match b * b - 4f32 * a * c {
-        0f32 => Some((-0.5 * b / a, -0.5 * b / a)),
+        discr if -EPSILON < discr && discr < EPSILON => Some((-0.5 * b / a, -0.5 * b / a)),
         discr if discr < 0f32 => None,
         discr => {
             let q = if b > 0f32 {
@@ -36,8 +36,6 @@ pub fn solve_quadratic(a: f32, b: f32, c: f32) -> Option<(f32, f32)> {
         }
     }
 }
-
-
 
 pub fn get_random_float() -> f32 {
     rand::random::<f32>()
@@ -62,4 +60,15 @@ pub fn v3min(a: &Vector3f, b: &Vector3f) -> Vector3f {
 }
 pub fn v3max(a: &Vector3f, b: &Vector3f) -> Vector3f {
     Vector3f::new(a.x.max(b.x), a.y.max(b.y), a.z.max(b.z))
+}
+
+#[macro_export]
+macro_rules! if3 {
+    ($f:expr,$a:expr, $b:expr) => {
+        if $f {
+            $a
+        } else {
+            $b
+        }
+    };
 }
