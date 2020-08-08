@@ -1,6 +1,6 @@
 [package]
 name = "hw_raytracer"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["DualWu <wushuang19920125@qq.com>"]
 edition = "2018"
 

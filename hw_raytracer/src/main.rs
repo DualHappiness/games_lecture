@@ -30,14 +30,15 @@ fn main() {
     let tallbox: RObj = new_obj(path.clone() + "tallbox.obj", white);
     let left: RObj = new_obj(path.clone() + "left.obj", red);
     let right: RObj = new_obj(path.clone() + "right.obj", green);
-    let light_: RObj = new_obj(path.clone() + "light.obj", light);
+    let light: RObj = new_obj(path.clone() + "light.obj", light);
 
+    println!("light size is {}", light.get_area());
     scene.add_obj(&floor);
     scene.add_obj(&shortbox);
     scene.add_obj(&tallbox);
     scene.add_obj(&left);
     scene.add_obj(&right);
-    scene.add_obj(&light_);
+    scene.add_obj(&light);
 
     scene.build_bvh();
 

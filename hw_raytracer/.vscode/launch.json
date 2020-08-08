@@ -39,6 +39,13 @@
                 }
             },
             "args": [],
+            
+            "sourceLanguages": [
+                "rust"
+            ],
+            "sourceMap": {
+                "/rustc/c7087fe00d2ba919df1d813c040a5d47e43b0fe7": "${env:RUST}/lib/rustlib/src/rust",
+            },
             "cwd": "${workspaceFolder}"
         },
         {
@@ -56,6 +63,12 @@
                     "name": "hw_raytracer",
                     "kind": "bin"
                 }
+            },
+            "sourceLanguages": [
+                "rust"
+            ],
+            "sourceMap": {
+                "/rustc/c7087fe00d2ba919df1d813c040a5d47e43b0fe7": "${env:RUST}/lib/rustlib/src/rust",
             },
             "args": [],
             "cwd": "${workspaceFolder}"

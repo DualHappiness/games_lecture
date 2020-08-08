@@ -159,7 +159,7 @@ impl Object for Triangle {
     }
     fn sample(&self, pos: &mut intersection::Intersection, pdf: &mut f32) {
         let x = get_random_float().sqrt();
-        let y = get_random_float().sqrt();
+        let y = get_random_float();
 
         pos.coords = self.v0 * (1f32 - x) + self.v1 * (x * (1f32 - y)) + self.v2 * (x * y);
         pos.normal = self.normal;

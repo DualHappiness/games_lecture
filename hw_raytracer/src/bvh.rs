@@ -72,10 +72,11 @@ fn get_sample(node: &Option<Node>, p: f32, pos: &mut Intersection, pdf: &mut f32
             obj.sample(pos, pdf);
             *pdf *= node.area;
         } else {
-            if p < node.left.as_ref().unwrap().area {
+            let left_area = node.left.as_ref().unwrap().area;
+            if p < left_area {
                 get_sample(&node.left, p, pos, pdf);
             } else {
-                get_sample(&node.right, p, pos, pdf);
+                get_sample(&node.right, p - left_area, pos, pdf);
             }
         }
     }
@@ -153,7 +154,6 @@ fn recursive_build(objects: &[Rc<dyn Object>]) -> Node {
             node.area = left.area + right.area;
             node.left = Some(left);
             node.right = Some(right);
-
         }
     }
 

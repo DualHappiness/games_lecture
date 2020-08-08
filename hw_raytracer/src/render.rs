@@ -18,46 +18,44 @@ fn shade(p: &Vector3f, wo: &Vector3f, n: &Vector3f, m: Rc<Material>, scene: &Sce
     scene.sample_light(&mut inter, &mut pdf_light);
     let x = inter.coords;
 
-    let ws = x - p;
+    let ws = (x - p).normalize();
     let nn = inter.normal;
-    let emit = inter.emit;
-    let new_ray = Ray::new(p.clone(), ws, 0f32);
+    let emit = inter.emit / (x - p).norm_squared();
+    let new_ray = Ray::new(p.clone(), x - p, 0f32);
     let inter = scene.intersect(&new_ray);
 
     let l_dir = if3!(
-        inter.happened && inter.distance < 1f32 - EPSILON,
-        nalgebra::zero(),
-        wise_product(&emit, &m.eval(wo, &ws, n)) * ws.dot(n) * ws.dot(&nn)
-            / ws.norm_squared()
-            / pdf_light
+        inter.happened && inter.distance > 1f32 - EPSILON,
+        wise_product(&emit, &m.eval(wo, &ws, n)) * ws.dot(n) * -ws.dot(&nn) / (pdf_light + EPSILON),
+        nalgebra::zero()
     );
-    // let l_indir = if3!(
-    //     get_random_float() < scene.russian_roulette,
-    //     nalgebra::zero(),
-    //     {
-    //         let wi = m.sample(wo, n).normalize();
-    //         let new_ray = Ray::new(p.clone(), wi, 0f32);
-    //         let inter = scene.intersect(&new_ray);
-    //         if !inter.happened || inter.obj.unwrap().has_emit() {
-    //             nalgebra::zero()
-    //         } else {
-    //             wise_product(
-    //                 &shade(
-    //                     &inter.coords,
-    //                     &new_ray.direction,
-    //                     &inter.normal,
-    //                     Rc::clone(&inter.m.unwrap()),
-    //                     scene,
-    //                 ),
-    //                 &m.eval(wo, &wi, n),
-    //             ) * wi.dot(n)
-    //                 / m.pdf(wo, &wi, n)
-    //                 / scene.russian_roulette
-    //         }
-    //     }
-    // );
+    let l_indir = if3!(
+        get_random_float() < scene.russian_roulette,
+        nalgebra::zero(),
+        {
+            let wi = m.sample(wo, n);
+            let new_ray = Ray::new(p.clone(), wi, 0f32);
+            let inter = scene.intersect(&new_ray);
+            if !inter.happened || inter.obj.unwrap().has_emit() {
+                nalgebra::zero()
+            } else {
+                wise_product(
+                    &shade(
+                        &inter.coords,
+                        &new_ray.direction,
+                        &inter.normal,
+                        Rc::clone(&inter.m.unwrap()),
+                        scene,
+                    ),
+                    &m.eval(wo, &wi, n),
+                ) * wi.dot(n)
+                    / m.pdf(wo, &wi, n)
+                    / scene.russian_roulette
+            }
+        }
+    );
 
-    l_dir
+    m.emission + l_dir + l_indir
 }
 
 pub fn cast_ray(ray: &Ray, scene: &Scene, _depth: i32) -> Vector3f {
@@ -169,9 +167,9 @@ pub fn render(scene: &Scene) -> std::io::Result<()> {
     fp.write(&format!("P6\n{} {}\n255\n", scene.width, scene.height).as_bytes())?;
     for i in 0..scene.width * scene.height {
         let mut color = [0; 3];
-        color[0] = (255f32 * clamp(0f32, 1f32, framebuffer[i].x)) as u8;
-        color[1] = (255f32 * clamp(0f32, 1f32, framebuffer[i].y)) as u8;
-        color[2] = (255f32 * clamp(0f32, 1f32, framebuffer[i].z)) as u8;
+        color[0] = (255f32 * clamp(0f32, 1f32, framebuffer[i].x).powf(0.6)) as u8;
+        color[1] = (255f32 * clamp(0f32, 1f32, framebuffer[i].y).powf(0.6)) as u8;
+        color[2] = (255f32 * clamp(0f32, 1f32, framebuffer[i].z).powf(0.6)) as u8;
         fp.write(&color)?;
     }
     Ok(())
