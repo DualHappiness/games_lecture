@@ -8,7 +8,7 @@ pub struct Scene {
     pub max_depth: i32,
     pub epsilon: f32,
     pub russian_roulette: f32,
-    objects: Vec<Rc<dyn Object>>,
+    objects: Vec<Arc<dyn Object>>,
     lights: Vec<Light>,
     bvh: Option<Accel>,
 }
@@ -39,15 +39,15 @@ impl Scene {
         }
     }
 
-    pub fn add_obj(&mut self, obj: &Rc<dyn Object>) {
-        self.objects.push(Rc::clone(obj));
+    pub fn add_obj(&mut self, obj: &Arc<dyn Object>) {
+        self.objects.push(Arc::clone(obj));
     }
 
     pub fn add_light(&mut self, light: Light) {
         self.lights.push(light);
     }
 
-    pub fn get_objs(&self) -> &Vec<Rc<dyn Object>> {
+    pub fn get_objs(&self) -> &Vec<Arc<dyn Object>> {
         &self.objects
     }
 

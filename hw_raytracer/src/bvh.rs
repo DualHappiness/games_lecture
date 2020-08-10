@@ -1,13 +1,14 @@
 use super::*;
+use std::sync::Arc;
 use std::time::SystemTime;
 
-type Node = Rc<BVHBuildNode>;
+type Node = Arc<BVHBuildNode>;
 #[derive(Default)]
 struct BVHBuildNode {
     pub bounds: Bound3,
     pub left: Option<Node>,
     pub right: Option<Node>,
-    pub obj: Option<Rc<dyn Object>>,
+    pub obj: Option<Arc<dyn Object>>,
 
     pub area: f32,
 }
@@ -20,19 +21,19 @@ pub enum SplitMethod {
 }
 
 pub struct BVHAccel {
-    primitives: Vec<Rc<dyn Object>>,
+    primitives: Vec<Arc<dyn Object>>,
 
     root: Option<Node>,
 }
 
 impl BVHAccel {
     pub fn new(
-        primitives: &Vec<Rc<dyn Object>>,
+        primitives: &Vec<Arc<dyn Object>>,
         _max_prims_in_node: i32,
         _split_method: SplitMethod,
     ) -> Self {
         let mut ret = Self {
-            primitives: primitives.iter().map(|obj| Rc::clone(obj)).collect(),
+            primitives: primitives.iter().map(|obj| Arc::clone(obj)).collect(),
             root: None,
         };
 
@@ -113,12 +114,12 @@ fn get_intersection(node: &Option<Node>, ray: &Ray) -> Intersection {
     return Intersection::default();
 }
 
-fn recursive_build(objects: &[Rc<dyn Object>]) -> Node {
+fn recursive_build(objects: &[Arc<dyn Object>]) -> Node {
     let mut node = BVHBuildNode::default();
     match objects.len() {
         1 => {
             node.bounds = objects[0].get_bounds();
-            node.obj = Some(Rc::clone(&objects[0]));
+            node.obj = Some(Arc::clone(&objects[0]));
             node.area = objects[0].get_area();
         }
         2 => {
@@ -137,7 +138,7 @@ fn recursive_build(objects: &[Rc<dyn Object>]) -> Node {
             }
 
             let index = centroid_bounds.max_extent() as usize;
-            let mut objects: Vec<_> = objects.iter().map(|obj| Rc::clone(&obj)).collect();
+            let mut objects: Vec<_> = objects.iter().map(|obj| Arc::clone(&obj)).collect();
             objects.sort_by(|o1, o2| {
                 if o1.get_bounds().centroid()[index] < o2.get_bounds().centroid()[index] {
                     std::cmp::Ordering::Less
@@ -157,5 +158,5 @@ fn recursive_build(objects: &[Rc<dyn Object>]) -> Node {
         }
     }
 
-    Rc::from(node)
+    Arc::from(node)
 }

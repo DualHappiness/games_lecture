@@ -1,5 +1,7 @@
 use super::*;
 use std::io::*;
+use std::sync::{mpsc, Arc};
+use std::thread;
 
 pub struct HitPayload {
     pub t_near: f32,
@@ -12,7 +14,13 @@ fn deg2rad(deg: &f32) -> f32 {
     deg * PI / 180f32
 }
 
-fn shade(p: &Vector3f, wo: &Vector3f, n: &Vector3f, m: Rc<Material>, scene: &Scene) -> Vector3f {
+fn shade(
+    p: &Vector3f,
+    wo: &Vector3f,
+    n: &Vector3f,
+    m: Arc<Material>,
+    scene: Arc<Scene>,
+) -> Vector3f {
     let mut inter = Intersection::default();
     let mut pdf_light = 0f32;
     scene.sample_light(&mut inter, &mut pdf_light);
@@ -29,36 +37,33 @@ fn shade(p: &Vector3f, wo: &Vector3f, n: &Vector3f, m: Rc<Material>, scene: &Sce
         wise_product(&emit, &m.eval(wo, &ws, n)) * ws.dot(n) * -ws.dot(&nn) / (pdf_light + EPSILON),
         nalgebra::zero()
     );
-    let l_indir = if3!(
-        get_random_float() < scene.russian_roulette,
-        nalgebra::zero(),
-        {
-            let wi = m.sample(wo, n);
-            let new_ray = Ray::new(p.clone(), wi, 0f32);
-            let inter = scene.intersect(&new_ray);
-            if !inter.happened || inter.obj.unwrap().has_emit() {
-                nalgebra::zero()
-            } else {
-                wise_product(
-                    &shade(
-                        &inter.coords,
-                        &new_ray.direction,
-                        &inter.normal,
-                        Rc::clone(&inter.m.unwrap()),
-                        scene,
-                    ),
-                    &m.eval(wo, &wi, n),
-                ) * wi.dot(n)
-                    / m.pdf(wo, &wi, n)
-                    / scene.russian_roulette
-            }
+    let russian_roulette = scene.russian_roulette;
+    let l_indir = if3!(get_random_float() < russian_roulette, nalgebra::zero(), {
+        let wi = m.sample(wo, n);
+        let new_ray = Ray::new(p.clone(), wi, 0f32);
+        let inter = scene.intersect(&new_ray);
+        if !inter.happened || inter.obj.unwrap().has_emit() {
+            nalgebra::zero()
+        } else {
+            wise_product(
+                &shade(
+                    &inter.coords,
+                    &new_ray.direction,
+                    &inter.normal,
+                    Arc::clone(&inter.m.unwrap()),
+                    scene,
+                ),
+                &m.eval(wo, &wi, n),
+            ) * wi.dot(n)
+                / m.pdf(wo, &wi, n)
+                / russian_roulette
         }
-    );
+    });
 
     m.emission + l_dir + l_indir
 }
 
-pub fn cast_ray(ray: &Ray, scene: &Scene, _depth: i32) -> Vector3f {
+pub fn cast_ray(ray: &Ray, scene: Arc<Scene>, _depth: i32) -> Vector3f {
     let intersection = scene.intersect(ray);
     if !intersection.happened {
         return nalgebra::zero();
@@ -67,7 +72,7 @@ pub fn cast_ray(ray: &Ray, scene: &Scene, _depth: i32) -> Vector3f {
         &intersection.coords,
         &ray.direction,
         &intersection.normal,
-        Rc::clone(&intersection.m.unwrap()),
+        Arc::clone(&intersection.m.unwrap()),
         scene,
     )
 }
@@ -137,7 +142,7 @@ pub fn fresnel(input: &Vector3f, normal: &Vector3f, ior: &f32) -> f32 {
     }
 }
 
-pub fn render(scene: &Scene) -> std::io::Result<()> {
+pub fn render(scene: Arc<Scene>) -> std::io::Result<()> {
     let mut framebuffer: Vec<Vector3f> = vec![nalgebra::zero(); scene.width * scene.height];
     let scale = deg2rad(&(scene.fov * 0.5)).tan();
     let aspect_ratio = scene.width as f32 / scene.height as f32;
@@ -145,22 +150,48 @@ pub fn render(scene: &Scene) -> std::io::Result<()> {
 
     // 默认屏幕距离为 1
     let eye_pos = Vector3f::new(278f32, 273f32, -800f32);
-    let mut m = 0;
 
-    let spp = 16f32;
-    println!("SPP: {}", spp);
-    for j in 0..scene.height {
-        for i in 0..scene.width {
-            let x = (2f32 * (i as f32 + 0.5) * inverse_width - 1f32) * scale * aspect_ratio;
-            let y = (1f32 - 2f32 * (j as f32 + 0.5) * inverse_height) * scale;
-            let dir = Vector3f::new(-x, y, 1f32).normalize();
-            for _ in 0..spp as usize {
-                framebuffer[m] += cast_ray(&Ray::new(eye_pos, dir, 0f32), scene, 0) / spp;
+    let spp = 32f32;
+    let num_thread = 4;
+    println!("SPP: {}, thread: {}", spp, num_thread);
+    let (tx, rx) = mpsc::channel();
+
+    for k in 0..num_thread {
+        let tx_local = mpsc::Sender::clone(&tx);
+        let scene = Arc::clone(&scene);
+        thread::spawn(move || {
+            for j in 0..scene.height / num_thread {
+                for i in 0..scene.width {
+                    let j = k * scene.height / num_thread + j;
+                    let m = j * scene.width + i;
+                    let x = (2f32 * (i as f32 + 0.5) * inverse_width - 1f32) * scale * aspect_ratio;
+                    let y = (1f32 - 2f32 * (j as f32 + 0.5) * inverse_height) * scale;
+                    let dir = Vector3f::new(-x, y, 1f32).normalize();
+
+                    let mut val: Vector3f = nalgebra::zero();
+                    for _ in 0..spp as usize {
+                        val += cast_ray(&Ray::new(eye_pos, dir, 0f32), Arc::clone(&scene), 0) / spp;
+                    }
+                    tx_local.send((m, val)).unwrap();
+                }
             }
-            m += 1;
-        }
-        update_progress(j as f32 / scene.height as f32);
+        });
     }
+    thread::spawn(move ||{
+        tx.send((0, nalgebra::zero())).unwrap();
+    });
+    let mut progress = 0;
+    for (m, val) in rx {
+        framebuffer[m] = val;
+        progress += 1;
+        if progress % scene.width == 0 {
+            update_progress((progress / scene.width) as f32 / scene.height as f32);
+        }
+        if progress == scene.width * scene.height {
+            break;
+        }
+    }
+
     update_progress(1f32);
 
     let mut fp = std::fs::File::create("binary.ppm")?;

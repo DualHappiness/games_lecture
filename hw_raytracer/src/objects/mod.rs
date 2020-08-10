@@ -11,6 +11,14 @@ pub struct Obj {
     pub specular_exponent: i32,
 }
 
+unsafe impl Sync for Obj {
+
+}
+
+unsafe impl Send for Obj {
+
+}
+
 impl Default for Obj {
     fn default() -> Self {
         Self {
@@ -24,7 +32,7 @@ impl Default for Obj {
     }
 }
 
-pub trait Object: Deref<Target = Obj> + DerefMut<Target = Obj> {
+pub trait Object: Deref<Target = Obj> + DerefMut<Target = Obj> + Sync + Send {
     fn intersect(&self, ray: &Ray) -> Option<(f32, usize)>;
 
     fn get_intersection(&self, ray: &Ray) -> Intersection;

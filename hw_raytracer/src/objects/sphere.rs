@@ -7,13 +7,13 @@ pub struct Sphere {
     pub radius: f32,
     pub radius2: f32,
     pub area: f32,
-    pub material: Rc<Material>,
+    pub material: Arc<Material>,
 }
 
 impl Clone for Sphere {
     fn clone(&self) -> Self {
         Self {
-            material: Rc::clone(&self.material),
+            material: Arc::clone(&self.material),
             ..*self
         }
     }
@@ -84,7 +84,7 @@ impl Object for Sphere {
                 ret.happened = true;
                 ret.coords = ray.origin + ray.direction * t;
                 ret.normal = (ret.coords - self.center).normalize();
-                ret.m = Some(Rc::clone(&self.material));
+                ret.m = Some(Arc::clone(&self.material));
                 ret.obj = Some(Box::from(self.clone()) as Box<dyn Object>);
                 ret.distance = t;
             }

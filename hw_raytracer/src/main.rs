@@ -1,9 +1,10 @@
 use hw_raytracer::*;
 use std::time::SystemTime;
+use std::sync::Arc;
 
-type RObj = Rc<dyn Object>;
+type RObj = Arc<dyn Object>;
 fn main() {
-    let mut scene = Scene::new(784, 784);
+    let mut scene = Scene::new(800, 800);
 
     let mut red = Material::default();
     red.kd = vector3! {0.63, 0.065, 0.05};
@@ -23,7 +24,7 @@ fn main() {
 
     let path = "models/cornellbox/".to_owned();
     let new_obj = |path: String, material| {
-        Rc::new(triangle::MeshTriangle::new(&path, material))
+        Arc::new(triangle::MeshTriangle::new(&path, material))
     };
     let floor: RObj = new_obj(path.clone() + "floor.obj", white);
     let shortbox: RObj = new_obj(path.clone() + "shortbox.obj", white);
@@ -43,7 +44,7 @@ fn main() {
     scene.build_bvh();
 
     let start = SystemTime::now();
-    render(&scene).expect("render error");
+    render(Arc::new(scene)).expect("render error");
     let elapsed = start.elapsed().unwrap();
 
     let hrs = elapsed.as_secs() / 3600;

@@ -42,14 +42,14 @@ pub struct Triangle {
 
     pub normal: Vector3f,
     pub area: f32,
-    pub material: Option<Rc<Material>>,
+    pub material: Option<Arc<Material>>,
 }
 
 impl Clone for Triangle {
     fn clone(&self) -> Self {
         let new_mat = match &self.material {
             None => None,
-            Some(mat) => Some(Rc::clone(mat)),
+            Some(mat) => Some(Arc::clone(mat)),
         };
         Self {
             material: new_mat,
@@ -72,7 +72,7 @@ impl DerefMut for Triangle {
 }
 
 impl Triangle {
-    pub fn new([v0, v1, v2]: [Vector3f; 3], material: Option<Rc<Material>>) -> Self {
+    pub fn new([v0, v1, v2]: [Vector3f; 3], material: Option<Arc<Material>>) -> Self {
         let e1 = v1 - v0;
         let e2 = v2 - v0;
         Self {
@@ -133,7 +133,7 @@ impl Object for Triangle {
         intersection.obj = Some(Box::from(self.clone()) as Box<dyn Object>);
         intersection.m = match &self.material {
             None => None,
-            Some(mat) => Some(Rc::clone(mat)),
+            Some(mat) => Some(Arc::clone(mat)),
         };
         intersection
     }
@@ -182,13 +182,17 @@ pub struct MeshTriangle {
     pub vertex_index: Vec<usize>,
     pub st_coordinates: Vec<Vector2f>,
 
-    pub triangles: Vec<Rc<Triangle>>,
+    pub triangles: Vec<Arc<Triangle>>,
 
     pub bvh: Option<Accel>,
     pub area: f32,
     pub m: Material,
 
     pub bounding_box: Bound3,
+}
+
+unsafe impl Sync for MeshTriangle {
+    
 }
 
 impl MeshTriangle {
@@ -212,7 +216,7 @@ impl MeshTriangle {
                 max_vert = v3max(&max_vert, &face_vertices[j]);
             }
             ret.triangles
-                .push(Rc::new(Triangle::new(face_vertices, Some(Rc::from(m)))));
+                .push(Arc::new(Triangle::new(face_vertices, Some(Arc::from(m)))));
 
             i += 3;
         }
@@ -224,8 +228,8 @@ impl MeshTriangle {
         let ptrs = ret
             .triangles
             .iter()
-            .map(|t| Rc::clone(&t))
-            .map(|t| t as Rc<dyn Object>)
+            .map(|t| Arc::clone(&t))
+            .map(|t| t as Arc<dyn Object>)
             .collect();
         ret.bvh = Some(Accel::new(&ptrs, 1, SplitMethod::NAIVE));
         ret

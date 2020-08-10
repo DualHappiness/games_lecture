@@ -5,11 +5,13 @@ use std::cmp::Ordering;
 use nalgebra::{Vector2, Vector3};
 pub use std::cell::RefCell;
 pub use std::rc::Rc;
+pub use std::sync::Arc;
 pub type Vector2f = Vector2<f32>;
 pub type Vector3f = Vector3<f32>;
 pub type Accel = BVHAccel;
 
 pub const PI: f32 = 3.14159265358979323846;
+pub const INV_PI: f32 = 1f32 / PI;
 pub const INFINITY: f32 = f32::MAX;
 pub const EPSILON: f32 = 0.00001;
 
