@@ -1,0 +1,10 @@
+[package]
+name = "rust_dx"
+version = "0.1.0"
+authors = ["DualWu <wushuang19920125@qq.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+winapi = { version = "0.3", features = ["winuser"] }

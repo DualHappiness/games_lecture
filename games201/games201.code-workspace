@@ -4,5 +4,7 @@
 			"path": "."
 		}
 	],
-	"settings": {}
+	"settings": {
+		"python.pythonPath": "C:\\Users\\Administrator\\scoop\\apps\\python\\current\\python.exe"
+	}
 }
