@@ -41,8 +41,6 @@ class WebGLRenderer {
                     this.shadowMeshes[i].draw(this.camera);
                 }
             }
-
-
         }
         // Camera pass
         for (let i = 0; i < this.meshes.length; i++) {

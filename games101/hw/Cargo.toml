@@ -7,7 +7,7 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-opencv = {version = "0.43.2", features = ["buildtime-bindgen"]}
+opencv = {version = "0.50.0", features = ["buildtime-bindgen"]}
 nalgebra = "0.21.1"
 num-traits = "0.2"
 num-derive = "0.2"
