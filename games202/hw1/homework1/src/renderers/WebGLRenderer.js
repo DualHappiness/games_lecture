@@ -25,8 +25,9 @@ class WebGLRenderer {
         gl.enable(gl.DEPTH_TEST); // Enable depth testing
         gl.depthFunc(gl.LEQUAL); // Near things obscure far things
 
+
         console.assert(this.lights.length != 0, "No light");
-        console.assert(this.lights.length == 1, "Multiple lights");
+        // console.assert(this.lights.length == 1, "Multiple lights");
 
         for (let l = 0; l < this.lights.length; l++) {
             // Draw light
@@ -41,12 +42,20 @@ class WebGLRenderer {
                 }
             }
 
-            // Camera pass
-            for (let i = 0; i < this.meshes.length; i++) {
-                this.gl.useProgram(this.meshes[i].shader.program.glShaderProgram);
-                this.gl.uniform3fv(this.meshes[i].shader.program.uniforms.uLightPos, this.lights[l].entity.lightPos);
-                this.meshes[i].draw(this.camera);
-            }
+
         }
+        // Camera pass
+        for (let i = 0; i < this.meshes.length; i++) {
+            this.gl.useProgram(this.meshes[i].shader.program.glShaderProgram);
+            let lightPosArr = new Float32Array(this.lights.length * 3);
+            for (let l = 0; l < this.lights.length; l++) {
+                lightPosArr[3 * l + 0] = this.lights[l].entity.lightPos[0];
+                lightPosArr[3 * l + 1] = this.lights[l].entity.lightPos[1];
+                lightPosArr[3 * l + 2] = this.lights[l].entity.lightPos[2];
+            }
+            this.gl.uniform3fv(this.meshes[i].shader.program.uniforms.uLightPos, lightPosArr);
+            this.meshes[i].draw(this.camera);
+        }
+
     }
 }

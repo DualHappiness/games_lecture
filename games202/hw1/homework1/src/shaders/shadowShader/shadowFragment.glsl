@@ -1,8 +1,11 @@
 #ifdef GL_ES
 precision mediump float;
 #endif
+#define LIGHT_NUM 2
 
-uniform vec3 uLightPos;
+uniform vec3 uLightPos[LIGHT_NUM];
+// uniform vec3 uSubLightPos;
+
 uniform vec3 uCameraPos;
 
 varying highp vec3 vNormal;

@@ -1,3 +1,5 @@
+#define LIGHT_MAX 2
+
 attribute vec3 aVertexPosition;
 attribute vec3 aNormalPosition;
 attribute vec2 aTextureCoord;
@@ -5,12 +7,12 @@ attribute vec2 aTextureCoord;
 uniform mat4 uModelMatrix;
 uniform mat4 uViewMatrix;
 uniform mat4 uProjectionMatrix;
-uniform mat4 uLightMVP;
+uniform mat4 uLightMVP[LIGHT_MAX];
 
 varying highp vec2 vTextureCoord;
 varying highp vec3 vFragPos;
 varying highp vec3 vNormal;
-varying highp vec4 vPositionFromLight;
+varying highp vec4 vPositionFromLight[LIGHT_MAX];
 
 void main(void) {
 
@@ -21,5 +23,7 @@ void main(void) {
                 vec4(aVertexPosition, 1.0);
 
   vTextureCoord = aTextureCoord;
-  vPositionFromLight = uLightMVP * vec4(aVertexPosition, 1.0);
+  for(int i = 0; i < LIGHT_MAX; i++) {
+    vPositionFromLight[i] = uLightMVP[i] * vec4(aVertexPosition, 1.0);
+  }
 }

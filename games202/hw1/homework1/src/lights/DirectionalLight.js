@@ -28,8 +28,8 @@ class DirectionalLight {
         // View transform
         mat4.lookAt(viewMatrix, this.lightPos, this.focalPoint, this.lightUp);
         // Projection transform
-        const hsize =  100.0;
-        mat4.ortho(projectionMatrix, -hsize, hsize, -hsize, hsize, 0, 1000.0);
+        const hsize =  200.0;
+        mat4.ortho(projectionMatrix, -hsize, hsize, -hsize, hsize, 0.1, 1000.0);
 
         mat4.multiply(lightMVP, projectionMatrix, viewMatrix);
         mat4.multiply(lightMVP, lightMVP, modelMatrix);
