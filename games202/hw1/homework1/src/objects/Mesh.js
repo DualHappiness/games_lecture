@@ -1,8 +1,11 @@
 class TRSTransform {
-    constructor(translate = [0, 0, 0], scale = [1, 1, 1]) {
-        this.translate = translate;
-        this.scale = scale;
-    }
+	constructor(translate = [0, 0, 0], scale = [1, 1, 1]) {
+		this.translate = translate;
+		this.scale = scale;
+	}
+	clone() {
+		return new TRSTransform([...this.translate], [...this.scale]);
+	}
 }
 class Mesh {
 	constructor(verticesAttrib, normalsAttrib, texcoordsAttrib, indices, transform) {
@@ -16,6 +19,7 @@ class Mesh {
 		const modelScale = [transform.modelScaleX, transform.modelScaleY, transform.modelScaleZ];
 		let meshTrans = new TRSTransform(modelTranslation, modelScale);
 		this.transform = meshTrans;
+		this.originTransform = meshTrans.clone();
 
 		let extraAttribs = [];
 

@@ -1,10 +1,8 @@
 #ifdef GL_ES
 precision mediump float;
 #endif
-#define LIGHT_NUM 2
 
-uniform vec3 uLightPos[LIGHT_NUM];
-// uniform vec3 uSubLightPos;
+uniform vec3 uLightPos;
 
 uniform vec3 uCameraPos;
 
@@ -23,7 +21,7 @@ vec4 pack(float depth) {
 }
 
 void main() {
-  // float z = vFragPos.z / 2.0 + 0.5;
+  // float z = pow(vFragPos.z / 2.0 + 0.5, 0.5);
   // gl_FragColor = vec4(z, z, z, 1.0);
   gl_FragColor = pack(gl_FragCoord.z);
 }

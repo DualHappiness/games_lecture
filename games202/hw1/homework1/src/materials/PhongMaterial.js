@@ -5,8 +5,6 @@ class PhongMaterial extends Material {
             // Phong
             'uSampler': { type: 'texture', value: color },
             'uKs': { type: '3fv', value: specular },
-            
-            'uLightNum' : { type: '1i', value: lights.length}
         };
         lights.forEach((light, i) => {
             let lightMVP = light.CalcLightMVP(translate, scale);
@@ -19,6 +17,14 @@ class PhongMaterial extends Material {
 
 
         super(uniforms, [], vertexShader, fragmentShader);
+    }
+
+    updateLightMVP(lights, translate, scale) {
+        let uniforms = this.uniforms;
+        lights.forEach((light, i) => {
+            let lightMVP = light.CalcLightMVP(translate, scale);
+            uniforms[`uLightMVP[${i}]`] = { type: 'matrix4fv', value: lightMVP };
+        });
     }
 }
 

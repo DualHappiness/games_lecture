@@ -156,7 +156,7 @@ vec3 blinnPhong(vec3 lightPos, vec3 lightIntensity) {
 
 void main(void) {
 
-  float visibility = 0.0;
+  float visibility = 1.0;
   vec3 color = vec3(0.0);
   for(int i = 0; i < LIGHT_MAX; i++) {
     // map [-1,1] to [0, 1]

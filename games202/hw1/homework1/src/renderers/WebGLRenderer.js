@@ -2,6 +2,9 @@ class WebGLRenderer {
     meshes = [];
     shadowMeshes = [];
     lights = [];
+    index = 0;
+    step = Math.PI / 1000;
+
 
     constructor(gl, camera) {
         this.gl = gl;
@@ -29,19 +32,38 @@ class WebGLRenderer {
         console.assert(this.lights.length != 0, "No light");
         // console.assert(this.lights.length == 1, "Multiple lights");
 
+        {// move 
+            let offset = Math.max(0.5, 2 * Math.sin(this.index));
+            this.index += this.step;
+            let scale = [offset, offset, offset];
+            for (let i = 0; i < this.shadowMeshes.length; i++) {
+                let mesh = this.shadowMeshes[i].mesh;
+                vec3.mul(mesh.transform.scale, mesh.originTransform.scale, scale);
+            }
+        }
+
+
         for (let l = 0; l < this.lights.length; l++) {
             // Draw light
             // TODO: Support all kinds of transform
-            this.lights[l].meshRender.mesh.transform.translate = this.lights[l].entity.lightPos;
-            this.lights[l].meshRender.draw(this.camera);
+            let light = this.lights[l];
+            light.meshRender.mesh.transform.translate = light.entity.lightPos;
+            light.meshRender.draw(this.camera);
 
-            // Shadow pass
-            if (this.lights[l].entity.hasShadowMap == true) {
-                for (let i = 0; i < this.shadowMeshes.length; i++) {
-                    this.shadowMeshes[i].draw(this.camera);
-                }
+            if (light.entity.hasShadowMap == true) {
+                gl.bindFramebuffer(gl.FRAMEBUFFER, light.entity.fbo);
+                gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
             }
         }
+
+        // Shadow pass
+        for (let i = 0; i < this.shadowMeshes.length; i++) {
+            let meshRender = this.shadowMeshes[i];
+            meshRender.material.updateLightMVP(meshRender.mesh.transform.translate, meshRender.mesh.transform.scale);
+            meshRender.draw(this.camera);
+        }
+
+        let lights = this.lights.map(l => l.entity);
         // Camera pass
         for (let i = 0; i < this.meshes.length; i++) {
             this.gl.useProgram(this.meshes[i].shader.program.glShaderProgram);
@@ -52,6 +74,7 @@ class WebGLRenderer {
                 lightPosArr[3 * l + 2] = this.lights[l].entity.lightPos[2];
             }
             this.gl.uniform3fv(this.meshes[i].shader.program.uniforms.uLightPos, lightPosArr);
+            this.meshes[i].material.updateLightMVP(lights, this.meshes[i].mesh.transform.translate, this.meshes[i].mesh.transform.scale);
             this.meshes[i].draw(this.camera);
         }
 
