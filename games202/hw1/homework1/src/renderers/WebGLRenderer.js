@@ -53,6 +53,8 @@ class WebGLRenderer {
             if (light.entity.hasShadowMap == true) {
                 gl.bindFramebuffer(gl.FRAMEBUFFER, light.entity.fbo);
                 gl.clear(gl.DEPTH_BUFFER_BIT | gl.COLOR_BUFFER_BIT);
+                // gl.clearColor(0.0, 0.0, 0.0, 1.0);
+                // gl.clearDepth(1.0);
             }
         }
 
@@ -77,6 +79,5 @@ class WebGLRenderer {
             this.meshes[i].material.updateLightMVP(lights, this.meshes[i].mesh.transform.translate, this.meshes[i].mesh.transform.scale);
             this.meshes[i].draw(this.camera);
         }
-
     }
 }
