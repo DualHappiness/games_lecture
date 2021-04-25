@@ -213,7 +213,7 @@ public:
             auto shFunc = [&](double phi, double theta) -> double {
                 Eigen::Array3d d = sh::ToVector(phi, theta);
                 const auto wi = Vector3f(d.x(), d.y(), d.z());
-                    auto H = std::max(0.0f, n.dot(wi));
+                auto H = std::max(0.0f, n.dot(wi));
                 if (m_Type != Type::Unshadowed)
                 {
                     const float BIAS = 0.0000001f;
@@ -231,7 +231,25 @@ public:
         }
         if (m_Type == Type::Interreflection)
         {
-            // TODO: leave for bonus
+            Eigen::MatrixXf temp;
+            temp.resize(SHCoeffLength, mesh->getVertexCount());
+            for (int i = 0; i < mesh->getVertexCount(); i++)
+            {
+                const Point3f &v = mesh->getVertexPositions().col(i);
+                const Normal3f &n = mesh->getVertexNormals().col(i);
+                auto shCoeff = InterRecuseHelp(scene, mesh, v, n, 0, m_Bounce);
+                for (int j = 0; j < shCoeff->size(); j++)
+                {
+                    temp.col(i).coeffRef(j) = (*shCoeff)[j];
+                }
+            }
+            for (int i = 0; i < mesh->getVertexCount(); i++)
+            {
+                for (int j = 0; j < SHCoeffLength; j++)
+                {
+                    m_TransportSHCoeffs.col(i).coeffRef(j) += temp.col(i).coeffRef(j);
+                }
+            }
         }
 
         // Save in face format
@@ -295,6 +313,90 @@ private:
     std::string m_CubemapPath;
     Eigen::MatrixXf m_TransportSHCoeffs;
     Eigen::MatrixXf m_LightCoeffs;
+
+    std::unique_ptr<std::vector<double>> InterRecuseHelp(const Scene *scene, const Mesh *mesh, const Point3f &p, const Normal3f &n, int curDepth, const int maxDepth)
+    {
+        if (curDepth >= maxDepth)
+        {
+            std::unique_ptr<std::vector<double>> sh(new std::vector<double>());
+            sh->assign(sh::GetCoefficientCount(SHOrder), 0.0);
+            return sh;
+        }
+
+        auto shFunc = [&](double phi, double theta) -> std::unique_ptr<std::vector<double>> {
+            Eigen::Array3d d = sh::ToVector(phi, theta);
+            const auto wi = Vector3f(d.x(), d.y(), d.z());
+
+            std::unique_ptr<std::vector<double>> sh(new std::vector<double>());
+            sh->assign(sh::GetCoefficientCount(SHOrder), 0.0);
+            const float BIAS = 0.0000001f;
+            Ray3f ray = Ray3f(p + wi * BIAS, wi);
+            Intersection inter;
+            if (scene->rayIntersect(ray, inter))
+            {
+                Point3f inter_p = inter.tri_index;
+                Point3f bary = inter.bary;
+                Normal3f inter_n = mesh->getVertexNormals().col(p.x()) * bary.x() + mesh->getVertexNormals().col(p.y()) * bary.y() + mesh->getVertexNormals().col(p.z()) * bary.z();
+
+                auto inderict = InterRecuseHelp(scene, mesh, inter_p, inter_n, curDepth + 1, maxDepth);
+
+                auto H = std::max(0.0f, n.dot(wi)) * std::max(0.0f, inter_n.dot(-wi)) / (p - inter_p).norm();
+                for (int i = 0; i < sh->size(); i++)
+                {
+                    auto inter_shi = m_TransportSHCoeffs.col(p.x()).coeffRef(i) * bary.x() + m_TransportSHCoeffs.col(p.y()).coeffRef(i) * bary.y() + m_TransportSHCoeffs.col(p.z()).coeffRef(i) * bary.z();
+                    (*sh)[i] += ((*inderict)[i] + inter_shi) * H;
+                }
+            }
+            return sh;
+        };
+        return InterProjectFunction(SHOrder, shFunc, m_SampleCount);
+    }
+
+    std::unique_ptr<std::vector<double>> InterProjectFunction(
+        int order, const std::function<std::unique_ptr<std::vector<double>>(double, double)> &func, int sample_count)
+    {
+
+        // This is the approach demonstrated in [1] and is useful for arbitrary
+        // functions on the sphere that are represented analytically.
+        const int sample_side = static_cast<int>(floor(sqrt(sample_count)));
+        std::unique_ptr<std::vector<double>> coeffs(new std::vector<double>());
+        coeffs->assign(sh::GetCoefficientCount(order), 0.0);
+
+        // generate sample_side^2 uniformly and stratified samples over the sphere
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_real_distribution<> rng(0.0, 1.0);
+        for (int t = 0; t < sample_side; t++)
+        {
+            for (int p = 0; p < sample_side; p++)
+            {
+                double alpha = (t + rng(gen)) / sample_side;
+                double beta = (p + rng(gen)) / sample_side;
+                // See http://www.bogotobogo.com/Algorithms/uniform_distribution_sphere.php
+                double phi = 2.0 * M_PI * beta;
+                double theta = acos(2.0 * alpha - 1.0);
+
+                // evaluate the analytic function for the current spherical coords
+                auto shCoeffs = func(phi, theta);
+
+                for (int i = 0; i < shCoeffs->size(); i++)
+                {
+                    (*coeffs)[i] += (*shCoeffs)[i];
+                }
+            }
+        }
+
+        // scale by the probability of a particular sample, which is
+        // 4pi/sample_side^2. 4pi for the surface area of a unit sphere, and
+        // 1/sample_side^2 for the number of samples drawn uniformly.
+        double weight = 4.0 * M_PI / (sample_side * sample_side);
+        for (unsigned int i = 0; i < coeffs->size(); i++)
+        {
+            (*coeffs)[i] *= weight;
+        }
+
+        return coeffs;
+    }
 };
 
 NORI_REGISTER_CLASS(PRTIntegrator, "prt");
