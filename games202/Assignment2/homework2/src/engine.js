@@ -1,5 +1,5 @@
-let precomputeLT = [];
-let precomputeL = [];
+let precomputeLT = {};
+let precomputeL = {};
 var cameraPosition = [50, 0, 100];
 
 var envmap = [
@@ -9,8 +9,14 @@ var envmap = [
 ];
 
 var guiParams = {
-	envmapId: 0
+	envmapId: 0,
+	prtType: 0,
 }
+
+const PRT_TYPES = [
+	'Unshadowed',
+	'Shadowed'
+];
 
 var cubeMaps = [];
 
@@ -59,11 +65,15 @@ async function GAMES202Main() {
 
 	// Add lights
 	// light - is open shadow map == false
-	let lightPos = [0, 80, 80];
-	let focalPoint = [0, 0, 0];
-	let lightUp = [0, 1, 0]
-	const directionLight = new DirectionalLight([1000, 1000, 1000], lightPos, focalPoint, lightUp, true, renderer.gl);
-	renderer.addLight(directionLight);
+	// let lightPos = [0, 80, 80];
+	// let focalPoint = [0, 0, 0];
+	// let lightUp = [0, 1, 0]
+	// const directionLight = new DirectionalLight([1000, 1000, 1000], lightPos, focalPoint, lightUp, true, renderer.gl);
+	// renderer.addLight(directionLight);
+	let lightPos = [0, 10000, 0];
+	let lightRadiance = [1, 0, 0];
+	const pointLight = new PointLight(lightRadiance, lightPos, false, renderer.gl);
+	renderer.addLight(pointLight)
 
 	// Add shapes
 	let skyBoxTransform = setTransform(0, 50, 50, 150, 150, 150);
@@ -85,37 +95,43 @@ async function GAMES202Main() {
 	// load skybox
 	loadOBJ(renderer, 'assets/testObj/', 'testObj', 'SkyBoxMaterial', skyBoxTransform);
 
+	// let TYPE = "";
 	// file parsing
-	for (let i = 0; i < envmap.length; i++) {
+	for (let type of PRT_TYPES) {
+		let lt = [];
+		precomputeLT[type] = lt;
+		let l = [];
+		precomputeL[type] = l;
+		for (let i = 0; i < envmap.length; i++) {
+			let val = '';
+			await this.loadShaderFile(envmap[i] + `/${type}_transport.txt`).then(result => {
+				val = result;
+			});
 
-		let val = '';
-		await this.loadShaderFile(envmap[i] + "/transport.txt").then(result => {
-			val = result;
-		});
-
-		let preArray = val.split(/[(\r\n)\r\n' ']+/);
-		let lineArray = [];
-		precomputeLT[i] = []
-		for (let j = 1; j <= Number(preArray.length) - 2; j++) {
-			precomputeLT[i][j - 1] = Number(preArray[j])
-		}
-		await this.loadShaderFile(envmap[i] + "/light.txt").then(result => {
-			val = result;
-		});
-
-		precomputeL[i] = val.split(/[(\r\n)\r\n]+/);
-		precomputeL[i].pop();
-		for (let j = 0; j < 9; j++) {
-			lineArray = precomputeL[i][j].split(' ');
-			for (let k = 0; k < 3; k++) {
-				lineArray[k] = Number(lineArray[k]);
+			let preArray = val.split(/[(\r\n)\r\n' ']+/);
+			let lineArray = [];
+			lt[i] = []
+			for (let j = 1; j <= Number(preArray.length) - 2; j++) {
+				lt[i][j - 1] = Number(preArray[j])
 			}
-			precomputeL[i][j] = lineArray;
+			await this.loadShaderFile(envmap[i] + `/${type}_light.txt`).then(result => {
+				val = result;
+			});
+
+			l[i] = val.split(/[(\r\n)\r\n]+/);
+			l[i].pop();
+			for (let j = 0; j < 9; j++) {
+				lineArray = l[i][j].split(' ');
+				for (let k = 0; k < 3; k++) {
+					lineArray[k] = Number(lineArray[k]);
+				}
+				l[i][j] = lineArray;
+			}
 		}
 	}
 
-	// TODO: load model - Add your Material here
-	loadOBJ(renderer, 'assets/mary/', 'mary', 'PhongMaterial', box2Transform);
+	// load model - Add your Material here
+	loadOBJ(renderer, 'assets/mary/', 'mary', 'PrtMaterial', box2Transform);
 	// loadOBJ(renderer, 'assets/bunny/', 'bunny', 'addYourPRTMaterial', box2Transform);
 
 	function createGUI() {
@@ -123,6 +139,10 @@ async function GAMES202Main() {
 		const panelModel = gui.addFolder('Switch Environemtn Map');
 		panelModel.add(guiParams, 'envmapId', { 'GraceGathedral': 0, 'Indoor': 1, 'Skybox': 2 }).name('Envmap Name');
 		panelModel.open();
+
+		const typeMode = gui.addFolder('Switch PRT Type');
+		typeMode.add(guiParams, 'prtType', { 'Unshadowed': 0, 'Shadowed': 1 }).name('PRT Type');
+		typeMode.open();
 	}
 
 	createGUI();

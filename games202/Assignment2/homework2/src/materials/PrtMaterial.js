@@ -1,19 +1,19 @@
 class PrtMaterial extends Material {
-
-    constructor(color, vertexShader, fragmentShader) {
+    constructor(vertexShader, fragmentShader) {
 
         super({
-            'uSampler': { type: 'texture', value: color },
-            'uPrecomputeL': { type: 'updatedInRealTime', value: null },
+            'uPrecomputeL[0]': { type: 'updatedInRealTime', value: null },
+            'uPrecomputeL[1]': { type: 'updatedInRealTime', value: null },
+            'uPrecomputeL[2]': { type: 'updatedInRealTime', value: null },
         }, ['aPrecomputeLT'], vertexShader, fragmentShader, null);
     }
 }
 
-async function buildPrtMaterial(color, vertexPath, fragmentPath) {
+async function buildPrtMaterial(vertexPath, fragmentPath) {
 
 
     let vertexShader = await getShaderString(vertexPath);
     let fragmentShader = await getShaderString(fragmentPath);
 
-    return new PrtMaterial(color, vertexShader, fragmentShader);
+    return new PrtMaterial(vertexShader, fragmentShader);
 }

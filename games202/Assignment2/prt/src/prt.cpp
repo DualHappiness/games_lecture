@@ -123,13 +123,19 @@ namespace ProjEnv
             {
                 for (int x = 0; x < width; x++)
                 {
-                    // TODO: here you need to compute light sh of each face of cubemap of each pixel
-                    // TODO: 此处你需要计算每个像素下cubemap某个面的球谐系数
                     Eigen::Vector3f dir = cubemapDirs[i * width * height + y * width + x];
                     int index = (y * width + x) * channel;
                     Eigen::Array3f Le(images[i][index + 0], images[i][index + 1],
                                       images[i][index + 2]);
-                    
+                    double delta = CalcArea(x, y, width, height);
+                    for (int l = 0; l <= SHOrder; l++)
+                    {
+                        for (int m = -l; m <= l; m++)
+                        {
+                            double sh = sh::EvalSH(l, m, dir.cast<double>().normalized());
+                            SHCoeffiecents[sh::GetIndex(l, m)] += sh * delta * Le.array();
+                        }
+                    }
                 }
             }
         }
@@ -189,7 +195,7 @@ public:
         int width, height, channel;
         std::vector<std::unique_ptr<float[]>> images =
             ProjEnv::LoadCubemapImages(cubePath.str(), width, height, channel);
-        auto envCoeffs = ProjEnv::PrecomputeCubemapSH<SHOrder>(images, width, height, channel);
+        std::vector<Eigen::Array3f> envCoeffs = ProjEnv::PrecomputeCubemapSH<SHOrder>(images, width, height, channel);
         m_LightCoeffs.resize(3, SHCoeffLength);
         for (int i = 0; i < envCoeffs.size(); i++)
         {
@@ -207,19 +213,15 @@ public:
             auto shFunc = [&](double phi, double theta) -> double {
                 Eigen::Array3d d = sh::ToVector(phi, theta);
                 const auto wi = Vector3f(d.x(), d.y(), d.z());
-                if (m_Type == Type::Unshadowed)
+                    auto H = std::max(0.0f, n.dot(wi));
+                if (m_Type != Type::Unshadowed)
                 {
-                    // TODO: here you need to calculate unshadowed transport term of a given direction
-                    // TODO: 此处你需要计算给定方向下的unshadowed传输项球谐函数值
-                    return 0.0f;
+                    const float BIAS = 0.0000001f;
+                    Ray3f ray = Ray3f(v + wi * BIAS, wi);
+                    auto V = scene->rayIntersect(ray) ? 0.0f : 1.0f;
+                    return H * V;
                 }
-                else
-                {
-                    // TODO: here you need to calculate shadowed transport term of a given direction
-                    // TODO: 此处你需要计算给定方向下的shadowed传输项球谐函数值
-                    return 0.0f;
-                }
-              return 0.0;
+                return H;
             };
             auto shCoeff = sh::ProjectFunction(SHOrder, shFunc, m_SampleCount);
             for (int j = 0; j < shCoeff->size(); j++)
@@ -274,19 +276,16 @@ public:
 
         const Vector3f &bary = its.bary;
         Color3f c = bary.x() * c0 + bary.y() * c1 + bary.z() * c2;
-        // TODO: you need to delete the following four line codes after finishing your calculation to SH,
-        //       we use it to visualize the normals of model for debug.
-        // TODO: 在完成了球谐系数计算后，你需要删除下列四行，这四行代码的作用是用来可视化模型法线
-        if (c.isZero()) {
-            auto n_ = its.shFrame.n.cwiseAbs();
-            return Color3f(n_.x(), n_.y(), n_.z());
-        }
         return c;
     }
 
     std::string toString() const
     {
-        return "PRTIntegrator[]";
+        return tfm::format(
+            "PRTIntegrator[\n"
+            "   type=%s\n"
+            "]",
+            static_cast<std::underlying_type<Type>::type>(m_Type));
     }
 
 private:

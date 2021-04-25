@@ -35,13 +35,6 @@ class WebGLRenderer {
             this.lights[l].meshRender.mesh.transform.translate = this.lights[l].entity.lightPos;
             this.lights[l].meshRender.draw(this.camera);
 
-            // Shadow pass
-            if (this.lights[l].entity.hasShadowMap == true) {
-                for (let i = 0; i < this.shadowMeshes.length; i++) {
-                    this.shadowMeshes[i].draw(this.camera);
-                }
-            }
-
             // Camera pass
             for (let i = 0; i < this.meshes.length; i++) {
                 this.gl.useProgram(this.meshes[i].shader.program.glShaderProgram);
@@ -59,10 +52,16 @@ class WebGLRenderer {
                             cameraModelMatrix);
                     }
 
+                    if (k.startsWith('uPrecomputeL')) {
+                        let precomputeL_RGBMat3 = precomputeL[PRT_TYPES[guiParams.prtType]][guiParams.envmapId];
+                        let arr = getMat3ValueFromRGB(precomputeL_RGBMat3);
+                        for (let idx = 0; idx < 3; idx++) {
+                            this.gl.uniformMatrix3fv(this.meshes[i].shader.program.uniforms[`uPrecomputeL[${idx}]`], false, arr[idx]);
+                        }
+                    }
                     // Bonus - Fast Spherical Harmonic Rotation
                     //let precomputeL_RGBMat3 = getRotationPrecomputeL(precomputeL[guiParams.envmapId], cameraModelMatrix);
-                    
-                    
+
                 }
 
                 this.meshes[i].draw(this.camera);

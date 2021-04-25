@@ -70,21 +70,24 @@ class MeshRender {
 		}
 
 		if (this.mesh.hasNormals) {
-			const numComponents = 3;
-			const type = gl.FLOAT;
-			const normalize = false;
-			const stride = 0;
-			const offset = 0;
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.#normalBuffer);
-			gl.vertexAttribPointer(
-				this.shader.program.attribs[this.mesh.normalsName],
-				numComponents,
-				type,
-				normalize,
-				stride,
-				offset);
-			gl.enableVertexAttribArray(
-				this.shader.program.attribs[this.mesh.normalsName]);
+			let attrNormal = this.shader.program.attribs[this.mesh.normalsName];
+			if (attrNormal && attrNormal != -1) {
+				const numComponents = 3;
+				const type = gl.FLOAT;
+				const normalize = false;
+				const stride = 0;
+				const offset = 0;
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.#normalBuffer);
+				gl.vertexAttribPointer(
+					this.shader.program.attribs[this.mesh.normalsName],
+					numComponents,
+					type,
+					normalize,
+					stride,
+					offset);
+				gl.enableVertexAttribArray(
+					this.shader.program.attribs[this.mesh.normalsName]);
+			}
 		}
 
 		if (this.mesh.hasTexcoords) {
@@ -199,15 +202,18 @@ class MeshRender {
 		}
 
 		gl.useProgram(this.shader.program.glShaderProgram);
-		
+
 		// Bind attribute mat3 - LT
-		const buf = gl.createBuffer();
-		gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(precomputeLT[guiParams.envmapId]), gl.STATIC_DRAW);
-	
-		for (var ii = 0; ii < 3; ++ii) {
-			gl.enableVertexAttribArray(this.shader.program.attribs['aPrecomputeLT'] + ii);
-			gl.vertexAttribPointer(this.shader.program.attribs['aPrecomputeLT'] + ii, 3, gl.FLOAT, false, 36, ii * 12);
+		let lt = this.shader.program.attribs['aPrecomputeLT'];
+		if (lt != null && lt != -1) {
+			const buf = gl.createBuffer();
+			gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(precomputeLT[PRT_TYPES[guiParams.prtType]][guiParams.envmapId]), gl.STATIC_DRAW);
+
+			for (var ii = 0; ii < 3; ++ii) {
+				gl.enableVertexAttribArray(this.shader.program.attribs['aPrecomputeLT'] + ii);
+				gl.vertexAttribPointer(this.shader.program.attribs['aPrecomputeLT'] + ii, 3, gl.FLOAT, false, 36, ii * 12);
+			}
 		}
 
 		// Bind geometry information
