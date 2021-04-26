@@ -2,6 +2,7 @@ class PrtMaterial extends Material {
     constructor(vertexShader, fragmentShader) {
 
         super({
+            'uDiffuse': { type: '1f', get value() { return materialParams.diffuse } },
             'uPrecomputeL[0]': { type: 'updatedInRealTime', value: null },
             'uPrecomputeL[1]': { type: 'updatedInRealTime', value: null },
             'uPrecomputeL[2]': { type: 'updatedInRealTime', value: null },

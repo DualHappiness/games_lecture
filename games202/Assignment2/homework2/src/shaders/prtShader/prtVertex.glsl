@@ -8,6 +8,8 @@ uniform mat3 uPrecomputeL[3];
 uniform mat4 uModelMatrix;
 uniform mat4 uViewMatrix;
 uniform mat4 uProjectionMatrix;
+uniform float uDiffuse;
+
 
 varying highp vec3 vColor;
 
@@ -26,5 +28,5 @@ void main(void) {
     vec4(aVertexPosition, 1.0);
 
   // vColor = color * texture2D(uSampler, aTextureCoord).rgb;
-  vColor = color;
+  vColor = color * uDiffuse;
 }

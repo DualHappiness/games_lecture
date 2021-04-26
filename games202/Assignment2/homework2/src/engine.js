@@ -3,10 +3,10 @@ let precomputeL = [];
 var cameraPosition = [50, 0, 100];
 
 var envmap = [
-	'assets/cubemap/CornellBox',
 	'assets/cubemap/GraceCathedral',
 	'assets/cubemap/Indoor',
 	'assets/cubemap/Skybox',
+	'assets/cubemap/CornellBox',
 ];
 
 var guiParams = {
@@ -14,10 +14,14 @@ var guiParams = {
 	prtType: 0,
 }
 
+var materialParams = {
+	diffuse: 1.0,
+}
+
 const PRT_TYPES = [
-	'Unshadowed',
 	'Shadowed',
-	'InterReflect'
+	'InterReflect',
+	'Unshadowed',
 ];
 
 var cubeMaps = [];
@@ -137,12 +141,16 @@ async function GAMES202Main() {
 	function createGUI() {
 		const gui = new dat.gui.GUI();
 		const panelModel = gui.addFolder('Switch Environemtn Map');
-		panelModel.add(guiParams, 'envmapId', { 'CornellBox': 0, 'GraceGathedral': 1, 'Indoor': 2, 'Skybox': 3 }).name('Envmap Name');
+		panelModel.add(guiParams, 'envmapId', { 'GraceGathedral': 0, 'Indoor': 1, 'Skybox': 2, 'CornellBox': 3 }).name('Envmap Name');
 		panelModel.open();
 
 		const typeMode = gui.addFolder('Switch PRT Type');
-		typeMode.add(guiParams, 'prtType', { 'Unshadowed': 0, 'Shadowed': 1, 'InterReflect': 2 }).name('PRT Type');
+		typeMode.add(guiParams, 'prtType', { 'Shadowed': 0, 'InterReflect': 1, 'Unshadowed': 2 }).name('PRT Type');
 		typeMode.open();
+
+		const materialParam = gui.addFolder('Material Param');
+		materialParam.add(materialParams, 'diffuse');
+		materialParam.open();
 	}
 
 	createGUI();
