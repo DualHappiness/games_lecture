@@ -1,8 +1,9 @@
 let precomputeLT = {};
-let precomputeL = {};
+let precomputeL = [];
 var cameraPosition = [50, 0, 100];
 
 var envmap = [
+	'assets/cubemap/CornellBox',
 	'assets/cubemap/GraceCathedral',
 	'assets/cubemap/Indoor',
 	'assets/cubemap/Skybox',
@@ -15,7 +16,8 @@ var guiParams = {
 
 const PRT_TYPES = [
 	'Unshadowed',
-	'Shadowed'
+	'Shadowed',
+	'InterReflect'
 ];
 
 var cubeMaps = [];
@@ -95,14 +97,24 @@ async function GAMES202Main() {
 	// load skybox
 	loadOBJ(renderer, 'assets/testObj/', 'testObj', 'SkyBoxMaterial', skyBoxTransform);
 
-	// let TYPE = "";
 	// file parsing
-	for (let type of PRT_TYPES) {
-		let lt = [];
-		precomputeLT[type] = lt;
-		let l = [];
-		precomputeL[type] = l;
-		for (let i = 0; i < envmap.length; i++) {
+	for (let i = 0; i < envmap.length; i++) {
+		await this.loadShaderFile(envmap[i] + `/light.txt`).then(result => {
+			val = result;
+		});
+
+		precomputeL[i] = val.split(/[(\r\n)\r\n]+/);
+		precomputeL[i].pop();
+		for (let j = 0; j < 9; j++) {
+			lineArray = precomputeL[i][j].split(' ');
+			for (let k = 0; k < 3; k++) {
+				lineArray[k] = Number(lineArray[k]);
+			}
+			precomputeL[i][j] = lineArray;
+		}
+		for (let type of PRT_TYPES) {
+			precomputeLT[type] = precomputeLT[type] || [];
+			let lt = precomputeLT[type];
 			let val = '';
 			await this.loadShaderFile(envmap[i] + `/${type}_transport.txt`).then(result => {
 				val = result;
@@ -114,19 +126,7 @@ async function GAMES202Main() {
 			for (let j = 1; j <= Number(preArray.length) - 2; j++) {
 				lt[i][j - 1] = Number(preArray[j])
 			}
-			await this.loadShaderFile(envmap[i] + `/${type}_light.txt`).then(result => {
-				val = result;
-			});
 
-			l[i] = val.split(/[(\r\n)\r\n]+/);
-			l[i].pop();
-			for (let j = 0; j < 9; j++) {
-				lineArray = l[i][j].split(' ');
-				for (let k = 0; k < 3; k++) {
-					lineArray[k] = Number(lineArray[k]);
-				}
-				l[i][j] = lineArray;
-			}
 		}
 	}
 
@@ -137,11 +137,11 @@ async function GAMES202Main() {
 	function createGUI() {
 		const gui = new dat.gui.GUI();
 		const panelModel = gui.addFolder('Switch Environemtn Map');
-		panelModel.add(guiParams, 'envmapId', { 'GraceGathedral': 0, 'Indoor': 1, 'Skybox': 2 }).name('Envmap Name');
+		panelModel.add(guiParams, 'envmapId', { 'CornellBox': 0, 'GraceGathedral': 1, 'Indoor': 2, 'Skybox': 3 }).name('Envmap Name');
 		panelModel.open();
 
 		const typeMode = gui.addFolder('Switch PRT Type');
-		typeMode.add(guiParams, 'prtType', { 'Unshadowed': 0, 'Shadowed': 1 }).name('PRT Type');
+		typeMode.add(guiParams, 'prtType', { 'Unshadowed': 0, 'Shadowed': 1, 'InterReflect': 2 }).name('PRT Type');
 		typeMode.open();
 	}
 

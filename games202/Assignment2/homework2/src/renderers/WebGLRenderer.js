@@ -53,7 +53,7 @@ class WebGLRenderer {
                     }
 
                     if (k.startsWith('uPrecomputeL')) {
-                        let precomputeL_RGBMat3 = precomputeL[PRT_TYPES[guiParams.prtType]][guiParams.envmapId];
+                        let precomputeL_RGBMat3 = precomputeL[guiParams.envmapId];
                         let arr = getMat3ValueFromRGB(precomputeL_RGBMat3);
                         for (let idx = 0; idx < 3; idx++) {
                             this.gl.uniformMatrix3fv(this.meshes[i].shader.program.uniforms[`uPrecomputeL[${idx}]`], false, arr[idx]);

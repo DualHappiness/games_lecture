@@ -116,8 +116,7 @@ namespace ProjEnv
         std::vector<Eigen::Array3f> SHCoeffiecents(SHNum);
         for (int i = 0; i < SHNum; i++)
             SHCoeffiecents[i] = Eigen::Array3f(0);
-        float sumWeight = 0;
-        for (int i = 0; i < 6; i++)
+        for (int i = 1; i < 6; i++)
         {
             for (int y = 0; y < height; y++)
             {
@@ -127,7 +126,7 @@ namespace ProjEnv
                     int index = (y * width + x) * channel;
                     Eigen::Array3f Le(images[i][index + 0], images[i][index + 1],
                                       images[i][index + 2]);
-                    double delta = CalcArea(x, y, width, height);
+                    double delta = CalcArea(static_cast<float>(x), static_cast<float>(y), width, height);
                     for (int l = 0; l <= SHOrder; l++)
                     {
                         for (int m = -l; m <= l; m++)
@@ -329,7 +328,7 @@ private:
 
             std::unique_ptr<std::vector<double>> sh(new std::vector<double>());
             sh->assign(sh::GetCoefficientCount(SHOrder), 0.0);
-            const float BIAS = 0.0000001f;
+            const float BIAS = 0.000000001f;
             Ray3f ray = Ray3f(p + wi * BIAS, wi);
             Intersection inter;
             if (scene->rayIntersect(ray, inter))
@@ -337,14 +336,20 @@ private:
                 Point3f inter_p = inter.tri_index;
                 Point3f bary = inter.bary;
                 Normal3f inter_n = mesh->getVertexNormals().col(p.x()) * bary.x() + mesh->getVertexNormals().col(p.y()) * bary.y() + mesh->getVertexNormals().col(p.z()) * bary.z();
+                inter_n.normalize();
 
-                auto inderict = InterRecuseHelp(scene, mesh, inter_p, inter_n, curDepth + 1, maxDepth);
-
-                auto H = std::max(0.0f, n.dot(wi)) * std::max(0.0f, inter_n.dot(-wi)) / (p - inter_p).norm();
-                for (int i = 0; i < sh->size(); i++)
+                if (inter_n.dot(-wi) > 0.0)
                 {
-                    auto inter_shi = m_TransportSHCoeffs.col(p.x()).coeffRef(i) * bary.x() + m_TransportSHCoeffs.col(p.y()).coeffRef(i) * bary.y() + m_TransportSHCoeffs.col(p.z()).coeffRef(i) * bary.z();
-                    (*sh)[i] += ((*inderict)[i] + inter_shi) * H;
+                    auto inderict = InterRecuseHelp(scene, mesh, inter_p, inter_n, curDepth + 1, maxDepth);
+
+                    // distribute in hemisphere
+                    auto H = std::max(0.0f, n.dot(wi)) / (2.0 * M_PI);
+
+                    for (int i = 0; i < sh->size(); i++)
+                    {
+                        auto inter_shi = m_TransportSHCoeffs.col(p.x()).coeffRef(i) * bary.x() + m_TransportSHCoeffs.col(p.y()).coeffRef(i) * bary.y() + m_TransportSHCoeffs.col(p.z()).coeffRef(i) * bary.z();
+                        (*sh)[i] += ((*inderict)[i] + inter_shi) * H;
+                    }
                 }
             }
             return sh;
