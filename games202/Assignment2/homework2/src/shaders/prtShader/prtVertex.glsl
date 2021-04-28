@@ -9,7 +9,7 @@ uniform mat4 uModelMatrix;
 uniform mat4 uViewMatrix;
 uniform mat4 uProjectionMatrix;
 uniform float uDiffuse;
-
+#define PI 3.1415926533;
 
 varying highp vec3 vColor;
 
@@ -28,5 +28,6 @@ void main(void) {
     vec4(aVertexPosition, 1.0);
 
   // vColor = color * texture2D(uSampler, aTextureCoord).rgb;
-  vColor = color * uDiffuse;
+  // 干脆不除pi了 直接控制还方便
+  vColor = color * uDiffuse; // / PI;
 }

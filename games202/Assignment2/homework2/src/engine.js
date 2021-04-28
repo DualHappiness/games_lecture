@@ -12,6 +12,7 @@ var envmap = [
 var guiParams = {
 	envmapId: 0,
 	prtType: 0,
+	rotate: true,
 }
 
 var materialParams = {
@@ -151,6 +152,7 @@ async function GAMES202Main() {
 		const materialParam = gui.addFolder('Material Param');
 		materialParam.add(materialParams, 'diffuse');
 		materialParam.open();
+		gui.add(guiParams, 'rotate');
 	}
 
 	createGUI();
