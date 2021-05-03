@@ -343,7 +343,10 @@ private:
                     auto inderict = InterRecuseHelp(scene, mesh, inter_p, inter_n, curDepth + 1, maxDepth);
 
                     // distribute in hemisphere
-                    auto H = std::max(0.0f, n.dot(wi)) / (2.0 * M_PI);
+                    // ! distribute in hemisphere not mean distribute in any direction so need divide 2PI
+                    // ! but mean need to divide pi
+                    // ! because the inray has a cos so the final c is abeldo / pi
+                    auto H = std::max(0.0f, n.dot(wi)) / M_PI;
 
                     for (int i = 0; i < sh->size(); i++)
                     {
