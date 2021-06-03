@@ -78,12 +78,12 @@ function computeSquareMatrixHelp(l, n, rotationMatrix) {
 }
 
 function mat4Matrix2mathMatrix(rotationMatrix) {
-
+	// ! mat4是行优先， math.js 是列优先
 	let mathMatrix = [];
 	for (let i = 0; i < 4; i++) {
 		let r = [];
 		for (let j = 0; j < 4; j++) {
-			r.push(rotationMatrix[i * 4 + j]);
+			r.push(rotationMatrix[j * 4 + i]);
 		}
 		mathMatrix.push(r);
 	}
