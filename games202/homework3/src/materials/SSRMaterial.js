@@ -9,15 +9,19 @@ class SSRMaterial extends Material {
             'uLightDir': { type: '3fv', value: lightDir },
 
             'uGDiffuse': { type: 'texture', value: camera.fbo.textures[0] },
-            'uGDepth': { type: 'texture', value: camera.fbo.textures[1] },
             'uGNormalWorld': { type: 'texture', value: camera.fbo.textures[2] },
             'uGShadow': { type: 'texture', value: camera.fbo.textures[3] },
             'uGPosWorld': { type: 'texture', value: camera.fbo.textures[4] },
+
+            'uGDepth[0]': { type: 'texture', value: camera.fbo.textures[1] },
+            'uGDepth[1]': { type: 'texture', value: camera.mipmapFbos[0].textures[0] },
+            'uGDepth[2]': { type: 'texture', value: camera.mipmapFbos[1].textures[0] },
+            'uGDepth[3]': { type: 'texture', value: camera.mipmapFbos[2].textures[0] },
         }, [], vertexShader, fragmentShader);
     }
 }
 
-async function buildSSRMaterial(diffuseMap, specularMap, light, camera,  vertexPath, fragmentPath) {
+async function buildSSRMaterial(diffuseMap, specularMap, light, camera, vertexPath, fragmentPath) {
     let vertexShader = await getShaderString(vertexPath);
     let fragmentShader = await getShaderString(fragmentPath);
 

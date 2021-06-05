@@ -6,10 +6,10 @@ uniform vec3 uLightDir;
 uniform vec3 uCameraPos;
 uniform vec3 uLightRadiance;
 uniform sampler2D uGDiffuse;
-uniform sampler2D uGDepth;
 uniform sampler2D uGNormalWorld;
 uniform sampler2D uGShadow;
 uniform sampler2D uGPosWorld;
+uniform sampler2D uGDepth[4];
 
 varying mat4 vWorldToScreen;
 varying highp vec4 vPosWorld;
@@ -18,6 +18,8 @@ varying highp vec4 vPosWorld;
 #define TWO_PI 6.283185307
 #define INV_PI 0.31830988618
 #define INV_TWO_PI 0.15915494309
+
+#define BIAS 0.0001
 
 float Rand1(inout float p) {
   p = fract(p * .1031);
@@ -86,7 +88,7 @@ vec2 GetScreenCoordinate(vec3 posWorld) {
 }
 
 float GetGBufferDepth(vec2 uv) {
-  float depth = texture2D(uGDepth, uv).x;
+  float depth = texture2D(uGDepth[0], uv).x;
   if(depth < 1e-2) {
     depth = 1000.0;
   }
@@ -121,9 +123,25 @@ vec3 GetGBufferDiffuse(vec2 uv) {
  * uv is in screen space, [0, 1] x [0, 1].
  *
  */
-vec3 EvalDiffuse(vec3 wi, vec3 wo, vec2 uv) {
-  vec3 diffuse = GetGBufferDiffuse(uv);
-  return diffuse;
+vec3 F(vec2 uv) {
+  return GetGBufferDiffuse(uv);
+}
+float D(vec3 _h) {
+  return INV_TWO_PI;
+}
+float G(vec3 _wi, vec3 _vo, vec3 _h) {
+  return 1.0;
+}
+
+vec3 EvalDiffuse(vec3 _wi, vec3 _wo, vec2 uv) {
+  // vec3 h = (wi + wo) / 2.0;
+  // vec3 n = GetGBufferNormalWorld(uv);
+  // float r = max(dot(n, wi), 0.0) * max(dot(n, wo), 0.0);
+  // if(r < BIAS) {
+  //   return vec3(0.0);
+  // }
+  // return F(uv) * G(wi, wo, h) * D(h) / (4.0 * r);
+  return GetGBufferDiffuse(uv) * INV_PI;
 }
 
 /*
@@ -133,24 +151,21 @@ vec3 EvalDiffuse(vec3 wi, vec3 wo, vec2 uv) {
  */
 vec3 EvalDirectionalLight(vec2 uv) {
   float visibility = GetGBufferuShadow(uv);
-  return uLightRadiance * visibility;
+  vec3 normal = GetGBufferNormalWorld(uv);
+  return visibility * max(dot(uLightDir, normal), 0.0) * uLightRadiance;
 }
 
 bool RayMarch(vec3 ori, vec3 dir, out vec3 hitPos) {
-  vec3 pos = ori;
-  vec2 uv = GetScreenCoordinate(pos);
-  while(true) {
-    if(uv.x >= 0.0 && uv.y >= 0.0 && uv.x <= 1.0 && uv.y <= 1.0) {
-      pos = pos + dir;
-      uv = GetScreenCoordinate(pos);
-      float depth = GetGBufferDepth(uv);
-      if(depth > pos.z) {
-        hitPos = pos;
-        return true;
-      }
-    } else {
-      break;
+  hitPos = ori;
+  float step = 0.1;
+  float dis = 0.0;
+  for(int i = 0; i < 100; i++) {
+    hitPos = ori + dir * dis;
+    float depth = GetGBufferDepth(GetScreenCoordinate(hitPos));
+    if(depth + BIAS < GetDepth(hitPos)) {
+      return true;
     }
+    dis += step;
   }
   return false;
 }
@@ -161,24 +176,41 @@ void main() {
   float s = InitRand(gl_FragCoord.xy);
 
   vec3 pos = vPosWorld.xyz;
-  vec3 L = vec3(0.0);
-  float pdf = 0.0;
+  vec3 wo = normalize(uCameraPos - pos);
+  vec3 LIndirect = vec3(0.0);
+  vec2 uv0 = GetScreenCoordinate(pos);
+  vec3 normal = GetGBufferNormalWorld(uv0);
+
+  // vec3 dir = reflect(-wo, normal);
+  // vec3 hitPos;
+  // if(RayMarch(pos, dir, hitPos)) {
+  //   vec2 uv1 = GetScreenCoordinate(hitPos);
+  //   LIndirect = EvalDiffuse(uLightDir, -dir, uv1);
+  //   // Lind = normalize(hitPos);
+  // }
+  vec3 diffuse = EvalDiffuse(uLightDir, wo, uv0);
+  vec3 t, b;
+  LocalBasis(normal, t, b);
+  t = normalize(t);
+  b = normalize(b);
+  mat3 localToWorld = mat3(t, b, normal);
   for(int i = 0; i < SAMPLE_NUM; i++) {
+    float pdf = 0.0;
     vec3 local_dir = SampleHemisphereUniform(s, pdf);
-    vec2 uv0 = GetScreenCoordinate(pos);
-    vec3 normal = GetGBufferNormalWorld(uv0);
-    vec3 b1, b2;
-    LocalBasis(normal, b1, b2);
-    vec3 dir = mat3(b1, b2, normal) * local_dir;
+    vec3 dir = normalize(localToWorld * local_dir);
     vec3 hitPos;
     if(RayMarch(pos, dir, hitPos)) {
       vec2 uv1 = GetScreenCoordinate(hitPos);
-      vec3 Lsample = EvalDiffuse(uLightDir, pos - uCameraPos, uv0) / pdf * EvalDiffuse(uLightDir, dir, uv1) * EvalDirectionalLight(uv1);
-      L += Lsample;
+      vec3 LSample = diffuse / pdf * EvalDiffuse(uLightDir, -dir, uv1) * EvalDirectionalLight(uv1);
+      LIndirect += LSample;
     }
   }
+  LIndirect /= float(SAMPLE_NUM);
 
-  L += GetGBufferDiffuse(GetScreenCoordinate(vPosWorld.xyz));
+  vec3 LDirect = diffuse * EvalDirectionalLight(uv0);
+  vec3 L = LDirect + LIndirect;
   vec3 color = pow(clamp(L, vec3(0.0), vec3(1.0)), vec3(1.0 / 2.2));
-  gl_FragColor = vec4(vec3(color.rgb), 1.0);
+  // gl_FragColor = vec4(vec3(color.rgb), 1.0);
+  
+  gl_FragColor = vec4(vec3(texture2D(uGDepth[1], uv0).xxx), 1.0);
 }
