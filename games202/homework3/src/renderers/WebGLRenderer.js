@@ -4,9 +4,11 @@ class WebGLRenderer {
     shadowMeshes = [];
     bufferMeshes = [];
     lights = [];
+
     mipmapShader = null;
     #points = null;
     #indices = null;
+    #uvs = null;
 
     constructor(gl, camera) {
         this.gl = gl;
@@ -30,6 +32,16 @@ class WebGLRenderer {
         ];
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(positions), gl.STATIC_DRAW);
         gl.bindBuffer(gl.ARRAY_BUFFER, null);
+        this.#uvs = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.#uvs);
+        const uvs = [
+            0.0, 0.0,
+            1.0, 0.0,
+            1.0, 1.0,
+            0.0, 1.0
+        ];
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(uvs), gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, null);
         this.#indices = gl.createBuffer();
         const indices = [
             0, 1, 2,
@@ -42,7 +54,7 @@ class WebGLRenderer {
             gl,
             './src/shaders/mipmapShader/mipmapVertex.glsl',
             './src/shaders/mipmapShader/mipmapFragment.glsl',
-            ['uInvWidth', 'uInvHeight', 'uGDepth'],
+            ['uViewport', 'uGDepth'],
             ['aCoord']
         ).then(shader => this.mipmapShader = shader);
     }
@@ -114,16 +126,13 @@ class WebGLRenderer {
 
             gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
-            // gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
+            gl.viewport(0, 0, window.screen.width, window.screen.height);
             gl.useProgram(program.glShaderProgram);
-            gl.viewport(0, 0, width, height);
 
-            gl.uniform1f(program.uniforms.uInvWidth, 1 / width);
-            gl.uniform1f(program.uniforms.uInvHeight, 1 / height);
-            // gl.activeTexture(gl.TEXTURE0 + 0);
-            // gl.bindTexture(gl.TEXTURE_2D, textures[level]);
-            // gl.uniform1i(program.uniforms.uGDepth, 0);
+            gl.uniform4fv(program.uniforms.uViewport, [0, 0, width, height]);
+            gl.activeTexture(gl.TEXTURE0 + 0);
+            gl.bindTexture(gl.TEXTURE_2D, textures[level]);
+            gl.uniform1i(program.uniforms.uGDepth, 0);
 
             gl.bindBuffer(gl.ARRAY_BUFFER, this.#points);
             gl.vertexAttribPointer(program.attribs.aCoord, 2, gl.FLOAT, false, 0, 0);
@@ -137,7 +146,7 @@ class WebGLRenderer {
 
         // Camera pass
         for (let i = 0; i < this.meshes.length; i++) {
-            // this.meshes[i].draw(this.camera, null, updatedParamters);
+            this.meshes[i].draw(this.camera, null, updatedParamters);
         }
     }
 }

@@ -13,10 +13,14 @@ class SSRMaterial extends Material {
             'uGShadow': { type: 'texture', value: camera.fbo.textures[3] },
             'uGPosWorld': { type: 'texture', value: camera.fbo.textures[4] },
 
-            'uGDepth[0]': { type: 'texture', value: camera.fbo.textures[1] },
-            'uGDepth[1]': { type: 'texture', value: camera.mipmapFbos[0].textures[0] },
-            'uGDepth[2]': { type: 'texture', value: camera.mipmapFbos[1].textures[0] },
-            'uGDepth[3]': { type: 'texture', value: camera.mipmapFbos[2].textures[0] },
+            'uGDepth0': { type: 'texture', value: camera.fbo.textures[1] },
+            'uGDepth1': { type: 'texture', value: camera.mipmapFbos[0].textures[0] },
+            'uGDepth2': { type: 'texture', value: camera.mipmapFbos[1].textures[0] },
+            'uGDepth3': { type: 'texture', value: camera.mipmapFbos[2].textures[0] },
+
+            // 'uInvWidth': { type: '1f', value: 1 / camera.width },
+            // 'uInvHeight': { type: '1f', value: 1 / camera.height },
+
         }, [], vertexShader, fragmentShader);
     }
 }

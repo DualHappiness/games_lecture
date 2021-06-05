@@ -51,7 +51,7 @@ class FBO{
         // Create depth buffer
         var depthBuffer = gl.createRenderbuffer(); // Create a renderbuffer object
         gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer); // Bind the object to target
-        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, window.screen.width, window.screen.height);
+        gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, width, height);
         gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer);
 
         gl.bindFramebuffer(gl.FRAMEBUFFER, null);
