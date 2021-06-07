@@ -181,7 +181,7 @@ float StepLevel(float step, int level) {
 
 bool RayMarch(vec3 ori, vec3 dir, out vec3 hitPos) {
   int level = 3;
-  float step = 0.1;
+  float step = 0.01;
   float dis = StepLevel(step, level);
   hitPos = ori;
   for(int i = 0; i < 1000; i++) {
@@ -204,7 +204,7 @@ bool RayMarch(vec3 ori, vec3 dir, out vec3 hitPos) {
   return level < 0;
 }
 
-#define SAMPLE_NUM 1
+#define SAMPLE_NUM 100
 
 void main() {
   float s = InitRand(gl_FragCoord.xy);
@@ -215,34 +215,34 @@ void main() {
   vec2 uv0 = GetScreenCoordinate(pos);
   vec3 normal = GetGBufferNormalWorld(uv0);
 
-  vec3 dir = reflect(-wo, normal);
-  vec3 hitPos;
-  if(RayMarch(pos, dir, hitPos)) {
-    vec2 uv1 = GetScreenCoordinate(hitPos);
-    LIndirect = EvalDiffuse(uLightDir, -dir, uv1);
-    // Lind = normalize(hitPos);
-  }
-  vec3 diffuse = EvalDiffuse(uLightDir, wo, uv0);
-  // vec4 t, b;
-  // LocalBasis(normal, t, b);
-  // t = normalize(t);
-  // b = normalize(b);
-  // mat4 localToWorld = mat3(t, b, normal);
-  // for(int i = 0; i < SAMPLE_NUM; i++) {
-  //   float pdf = 0.0;
-  //   vec3 local_dir = SampleHemisphereUniform(s, pdf);
-  //   vec3 dir = normalize(localToWorld * local_dir);
-  //   vec3 hitPos;
-  //   if(RayMarch(pos, dir, hitPos)) {
-  //     vec2 uv1 = GetScreenCoordinate(hitPos);
-  //     vec3 LSample = diffuse / pdf * EvalDiffuse(uLightDir, -dir, uv1) * EvalDirectionalLight(uv1);
-  //     LIndirect += LSample;
-  //   }
+  // vec3 dir = reflect(-wo, normal);
+  // vec3 hitPos;
+  // if(RayMarch(pos, dir, hitPos)) {
+  //   vec2 uv1 = GetScreenCoordinate(hitPos);
+  //   LIndirect = EvalDiffuse(uLightDir, -dir, uv1);
+  //   // Lind = normalize(hitPos);
   // }
-  // LIndirect /= float(SAMPLE_NUM);
+  vec3 diffuse = EvalDiffuse(uLightDir, wo, uv0);
+  vec3 t, b;
+  LocalBasis(normal, t, b);
+  t = normalize(t);
+  b = normalize(b);
+  mat3 localToWorld = mat3(t, b, normal);
+  for(int i = 0; i < SAMPLE_NUM; i++) {
+    float pdf = 0.0;
+    vec3 local_dir = SampleHemisphereUniform(s, pdf);
+    vec3 dir = normalize(localToWorld * local_dir);
+    vec3 hitPos;
+    if(RayMarch(pos, dir, hitPos)) {
+      vec2 uv1 = GetScreenCoordinate(hitPos);
+      vec3 LSample = diffuse / pdf * EvalDiffuse(uLightDir, -dir, uv1) * EvalDirectionalLight(uv1);
+      LIndirect += LSample;
+    }
+  }
+  LIndirect /= float(SAMPLE_NUM);
 
   vec3 LDirect = diffuse * EvalDirectionalLight(uv0);
-  vec3 L = LIndirect;
+  vec3 L = LDirect + LIndirect;
   vec3 color = pow(clamp(L, vec3(0.0), vec3(1.0)), vec3(1.0 / 2.2));
   gl_FragColor = vec4(vec3(color.rgb), 1.0);
   // float depth = GetGBufferDepthLod(uv0, 2) / 20.0;
