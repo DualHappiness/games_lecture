@@ -341,13 +341,7 @@ private:
                 if (inter_n.dot(-wi) > 0.0)
                 {
                     auto inderict = InterRecuseHelp(scene, mesh, inter_p, inter_n, curDepth + 1, maxDepth);
-
-                    // distribute in hemisphere
-                    // ! distribute in hemisphere not mean distribute in any direction so need divide 2PI
-                    // ! but mean need to divide pi
-                    // ! because the inray has a cos so the final c is abeldo / pi
-                    auto H = std::max(0.0f, n.dot(wi)) / M_PI;
-
+                    auto H = std::max(0.0f, n.dot(wi));
                     for (int i = 0; i < sh->size(); i++)
                     {
                         auto inter_shi = m_TransportSHCoeffs.col(p.x()).coeffRef(i) * bary.x() + m_TransportSHCoeffs.col(p.y()).coeffRef(i) * bary.y() + m_TransportSHCoeffs.col(p.z()).coeffRef(i) * bary.z();
