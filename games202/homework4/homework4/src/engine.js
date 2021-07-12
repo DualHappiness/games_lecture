@@ -68,7 +68,7 @@ async function GAMES202Main() {
 
 	// Add Sphere
 	let img = new Image(); // brdfLUT
-	img.src = 'assets/ball/GGX_E_LUT.png';
+	img.src = 'assets/ball/GGX_E_IS_LUT.png';
 	var loadImage = async img => {
 		return new Promise((resolve, reject) => {
 			img.onload = async () => {
@@ -82,7 +82,7 @@ async function GAMES202Main() {
 	brdflut.CreateImageTexture(gl, img);
 
 	let img1 = new Image(); // eavgLUT
-	img1.src = 'assets/ball/GGX_Eavg_LUT.png';
+	img1.src = 'assets/ball/GGX_Eavg_IS_LUT.png';
 	var loadImage = async img => {
 		return new Promise((resolve, reject) => {
 			img.onload = async () => {
@@ -136,7 +136,7 @@ async function GAMES202Main() {
 	function createGUI() {
 		const gui = new dat.gui.GUI();
 		const panelModel = gui.addFolder('Switch Environemtn Map');
-		panelModel.add(guiParams, 'envmapId', { 'CornellBox':0}).name('Envmap Name');
+		panelModel.add(guiParams, 'envmapId', { 'CornellBox': 0 }).name('Envmap Name');
 		panelModel.open();
 	}
 

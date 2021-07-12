@@ -82,28 +82,12 @@ float GeometrySmith(float roughness, float NoV, float NoL)
     return ggx1 * ggx2;
 }
 
-float FresnelR0(float roughness, float n)
-{
-    float k2 = roughness * roughness;
-    float n1 = (n - 1) * (n - 1);
-    float n2 = (n + 1) * (n + 1);
-    return (n1 + k2) / (n2 + k2);
-}
-
-float FresnelSchlick(float r0, float cos)
-{
-    return r0 + (1.0 - r0) * pow(1.0 - cos, 5.0);
-}
-
 Vec3f IntegrateBRDF(Vec3f V, float roughness, float NdotV)
 {
     float A = 0.0;
-    float B = 0.0;
-    float C = 0.0;
     const int sample_count = 1024;
     Vec3f N = Vec3f(0.0, 0.0, 1.0);
 
-    float R0 = FresnelR0(roughness, 0.1);
     samplePoints sampleList = squareToCosineHemisphere(sample_count);
     for (int i = 0; i < sample_count; i++)
     {
@@ -113,19 +97,17 @@ Vec3f IntegrateBRDF(Vec3f V, float roughness, float NdotV)
 
         float NdotL = dot(N, L);
 
-        float F = FresnelSchlick(R0, NdotV);
         float D = DistributionGGX(N, H, roughness);
         float G = GeometrySmith(roughness, NdotV, NdotL);
 
-        float fr = F * G * D / (4 * NdotL * NdotV);
+        float fr = G * D / (4 * NdotL * NdotV);
 
         // To calculate (fr * ni) / p_o here
         float E = fr * NdotL / pdf;
         A += E;
     }
-    C = B = A;
 
-    return {A / sample_count, B / sample_count, C / sample_count};
+    return Vec3f(A / sample_count);
 }
 
 int main()

@@ -61,11 +61,20 @@ float GeometrySmith(float roughness, float NoV, float NoL)
     return ggx1 * ggx2;
 }
 
+float FresnelR0(float roughness, float n)
+{
+    float k2 = roughness * roughness;
+    float n1 = (n - 1) * (n - 1);
+    float n2 = (n + 1) * (n + 1);
+    return (n1 + k2) / (n2 + k2);
+}
+
 Vec3f IntegrateBRDF(Vec3f V, float roughness)
 {
     const int sample_count = 1024;
     Vec3f N = Vec3f(0.0, 0.0, 1.0);
-    float irr = 0.0;
+    // float irr = 0.0;
+    float A = 0.0, B = 0.0;
     for (int i = 0; i < sample_count; i++)
     {
         Vec2f Xi = Hammersley(i, sample_count);
@@ -77,14 +86,21 @@ Vec3f IntegrateBRDF(Vec3f V, float roughness)
         float VoH = std::max(dot(V, H), 0.0f);
         float NoV = std::max(dot(N, V), 0.0f);
 
-        // To calculate (fr * ni) / p_o here - Bonus 1
-        float weight = VoH * GeometrySmith(roughness, NoV, NoL) / (NoV * NoH);
-        irr += weight;
+        if (NoL > 0)
+        {
+            // To calculate (fr * ni) / p_o here - Bonus 1
+            float G = GeometrySmith(roughness, NoV, NoL);
+            float weight = VoH * G / (NoV * NoH);
+            // irr += weight;
 
-        // Split Sum - Bonus 2
+            // Split Sum - Bonus 2
+            float Fc = pow(1 - VoH, 5);
+            A += (1 - Fc) * weight;
+            B += Fc * weight;
+        }
     }
 
-    return Vec3f(irr / sample_count);
+    return Vec3f(A / sample_count, B / sample_count, 0.0);
 }
 
 int main()

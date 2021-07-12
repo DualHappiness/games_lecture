@@ -66,9 +66,11 @@ vec3 MultiScatterBRDF(float NdotL, float NdotV) {
   vec3 albedo = pow(texture2D(uAlbedoMap, vTextureCoord).rgb, vec3(2.2));
 
   vec3 E_o = texture2D(uBRDFLut, vec2(NdotL, uRoughness)).xyz;
+  // E_o = vec3(E_o.x + E_o.y);
   vec3 E_i = texture2D(uBRDFLut, vec2(NdotV, uRoughness)).xyz;
-
+  // E_i = vec3(E_i.x + E_i.y);
   vec3 E_avg = texture2D(uEavgLut, vec2(0, uRoughness)).xyz;
+  // E_avg = vec3(E_avg.x+ E_avg.y);
   // copper
   vec3 edgetint = vec3(0.827, 0.792, 0.678);
   vec3 F_avg = AverageFresnel(albedo, edgetint);
