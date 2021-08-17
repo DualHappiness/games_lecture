@@ -82,49 +82,58 @@ Buffer2D<Float3> Denoiser::Filter(const FrameInfo &frameInfo) {
     int height = frameInfo.m_beauty.m_height;
     int width = frameInfo.m_beauty.m_width;
     Buffer2D<Float3> filteredImage = CreateBuffer2D<Float3>(width, height);
-    int kernelRadius = 16;
+    int kernelRadius = 3;
+    int waveletCount = 3;
+    auto lastImage = frameInfo.m_beauty;
+    for (int waveletIndex = 0; waveletIndex < waveletCount; waveletIndex++) {
+        int step = pow(2, waveletIndex);
 #pragma omp parallel for
-    for (int y = 0; y < height; y++) {
-        for (int x = 0; x < width; x++) {
-            // Joint bilateral filter
-            float sum_of_weights = 0.0f;
-            Float3 color = 0.0f;
-            for (int i = -kernelRadius; i < kernelRadius; i++) {
-                for (int j = -kernelRadius; j < kernelRadius; j++) {
-                    int x2 = x + i;
-                    int y2 = y + j;
-                    if (x2 < 0 || x2 >= width || y2 < 0 || y2 >= height) {
-                        continue;
-                    }
-                    float temp = -(Sqr(i) + Sqr(j)) / (2.0f * Sqr(m_sigmaCoord));
-                    temp -=
-                        SqrLength(frameInfo.m_beauty(x, y) - frameInfo.m_beauty(x2, y2)) /
-                        (2.0f * Sqr(m_sigmaColor));
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                // Joint bilateral filter
+                float sum_of_weights = 0.0f;
+                Float3 color = 0.0f;
+                for (int i = -kernelRadius; i < kernelRadius; i++) {
+                    for (int j = -kernelRadius; j < kernelRadius; j++) {
 
-                    if (SqrLength(frameInfo.m_normal(x, y)) > 0 &&
-                        SqrLength(frameInfo.m_normal(x2, y2)) > 0) {
-                        temp -= Sqr(SafeAcos(Dot(frameInfo.m_normal(x, y),
-                                                 frameInfo.m_normal(x2, y2)))) /
-                                (2.0f * Sqr(m_sigmaNormal));
-                    }
+                        int x2 = x + i * step;
+                        int y2 = y + j * step;
+                        if (x2 < 0 || x2 >= width || y2 < 0 || y2 >= height) {
+                            continue;
+                        }
 
-                    auto diff = frameInfo.m_position(x2, y2) - frameInfo.m_position(x, y);
-                    auto len = Length(diff);
-                    float position_ratio = 1.0f;
-                    if (len > .0f) {
-                        position_ratio = Sqr(Dot(frameInfo.m_normal(x, y), diff / len));
-                    }
-                    temp -= position_ratio * (2.0f * Sqr(m_sigmaPlane));
+                        float temp = -(Sqr(i) + Sqr(j)) / (2.0f * Sqr(m_sigmaCoord));
+                        temp -= SqrLength(frameInfo.m_beauty(x, y) -
+                                          frameInfo.m_beauty(x2, y2)) /
+                                (2.0f * Sqr(m_sigmaColor));
 
-                    float weight = std::exp(temp);
-                    // std::cout << weight << ' ' << temp << ' ' << std::endl;
-                    sum_of_weights += weight;
-                    color += frameInfo.m_beauty(x2, y2) * weight;
+                        if (SqrLength(frameInfo.m_normal(x, y)) > 0 &&
+                            SqrLength(frameInfo.m_normal(x2, y2)) > 0) {
+                            temp -= Sqr(SafeAcos(Dot(frameInfo.m_normal(x, y),
+                                                     frameInfo.m_normal(x2, y2)))) /
+                                    (2.0f * Sqr(m_sigmaNormal));
+                        }
+
+                        auto diff =
+                            frameInfo.m_position(x2, y2) - frameInfo.m_position(x, y);
+                        auto len = Length(diff);
+                        float position_ratio = 1.0f;
+                        if (len > .0f) {
+                            position_ratio =
+                                Sqr(Dot(frameInfo.m_normal(x, y), diff / len));
+                        }
+                        temp -= position_ratio * (2.0f * Sqr(m_sigmaPlane));
+
+                        float weight = std::exp(temp);
+                        // std::cout << weight << ' ' << temp << ' ' << std::endl;
+                        sum_of_weights += weight;
+                        color += lastImage(x2, y2) * weight;
+                    }
                 }
+                filteredImage(x, y) = sum_of_weights == .0 ? .0f : color / sum_of_weights;
             }
-            filteredImage(x, y) = sum_of_weights == .0 ? .0f : color / sum_of_weights;
-            // filteredImage(x, y) = frameInfo.m_beauty(x, y);
         }
+        lastImage = filteredImage;
     }
     return filteredImage;
 }
