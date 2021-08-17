@@ -7,14 +7,30 @@ void Denoiser::Reprojection(const FrameInfo &frameInfo) {
     int width = m_accColor.m_width;
     Matrix4x4 preWorldToScreen =
         m_preFrameInfo.m_matrix[m_preFrameInfo.m_matrix.size() - 1];
-    Matrix4x4 preWorldToCamera =
-        m_preFrameInfo.m_matrix[m_preFrameInfo.m_matrix.size() - 2];
 #pragma omp parallel for
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            // TODO: Reproject
+            // Reproject
+            auto id = frameInfo.m_id(x, y);
             m_valid(x, y) = false;
             m_misc(x, y) = Float3(0.f);
+            if (id == -1) {
+                continue;
+            }
+            auto curWorldPos = frameInfo.m_position(x, y);
+            auto curWorldToLocal = Inverse(frameInfo.m_matrix[id]);
+            auto preLocalToWorld = m_preFrameInfo.m_matrix[id];
+            auto transform = preWorldToScreen * preLocalToWorld * curWorldToLocal;
+            auto preScreenPos = transform(curWorldPos, Float3::Point) - 0.5f;
+
+            if (preScreenPos.x >= 0 && preScreenPos.x < width && preScreenPos.y >= 0 &&
+                preScreenPos.y < height) {
+                auto preId = m_preFrameInfo.m_id(preScreenPos.x, preScreenPos.y);
+                if (preId == id) {
+                    m_valid(x, y) = true;
+                    m_misc(x, y) = m_accColor(preScreenPos.x, preScreenPos.y);
+                }
+            }
         }
     }
     std::swap(m_misc, m_accColor);
@@ -27,10 +43,35 @@ void Denoiser::TemporalAccumulation(const Buffer2D<Float3> &curFilteredColor) {
 #pragma omp parallel for
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
-            // TODO: Temporal clamp
-            Float3 color = m_accColor(x, y);
-            // TODO: Exponential moving average
-            float alpha = 1.0f;
+            Float3 average = 0.0f;
+            float n = 0.0f;
+            for (int i = -kernelRadius; i < kernelRadius; i++) {
+                for (int j = -kernelRadius; j < kernelRadius; j++) {
+                    if (x + i < 0 || y + j < 0 || x + i >= width || y + j >= height) {
+                        continue;
+                    }
+                    average += curFilteredColor(x + i, y + j);
+                    n += 1.0f;
+                }
+            }
+            average /= n;
+            Float3 sigma = 0.0f;
+            for (int i = -kernelRadius; i < kernelRadius; i++) {
+                for (int j = -kernelRadius; j < kernelRadius; j++) {
+                    if (x + i < 0 || y + j < 0 || x + i >= width || y + j >= height) {
+                        continue;
+                    }
+                    auto diff = Abs(curFilteredColor(x + i, y + j) - average);
+                    sigma += diff * diff;
+                }
+            }
+            sigma /= n;
+
+            // Temporal clamp
+            Float3 color = Clamp(m_accColor(x, y), average - sigma * m_colorBoxK,
+                                 average + sigma * m_colorBoxK);
+            // Exponential moving average
+            float alpha = m_valid(x, y) ? m_alpha : 1.0f;
             m_misc(x, y) = Lerp(color, curFilteredColor(x, y), alpha);
         }
     }
@@ -52,6 +93,9 @@ Buffer2D<Float3> Denoiser::Filter(const FrameInfo &frameInfo) {
                 for (int j = -kernelRadius; j < kernelRadius; j++) {
                     int x2 = x + i;
                     int y2 = y + j;
+                    if (x2 < 0 || x2 >= width || y2 < 0 || y2 >= height) {
+                        continue;
+                    }
                     float temp = -(Sqr(i) + Sqr(j)) / (2.0f * Sqr(m_sigmaCoord));
                     temp -=
                         SqrLength(frameInfo.m_beauty(x, y) - frameInfo.m_beauty(x2, y2)) /
@@ -79,6 +123,7 @@ Buffer2D<Float3> Denoiser::Filter(const FrameInfo &frameInfo) {
                 }
             }
             filteredImage(x, y) = sum_of_weights == .0 ? .0f : color / sum_of_weights;
+            // filteredImage(x, y) = frameInfo.m_beauty(x, y);
         }
     }
     return filteredImage;
