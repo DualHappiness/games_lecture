@@ -8,4 +8,4 @@ edition = "2018"
 
 [dependencies]
 opencv = {version = "0.43.2", features = ["buildtime-bindgen"]}
-nalgebra = "0.21.1"
+nalgebra = "0.27.1"
